@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { botFetch } from '@/lib/api'
+import { OrderDrawer } from '@/components/OrderDrawer'
 
 interface OrderItem {
   product_id?: string
@@ -31,17 +33,9 @@ interface Order {
   source: string
 }
 
-const CARRIERS = [
-  'Servientrega',
-  'Coordinadora',
-  'Inter Rapidísimo',
-  'Envia',
-  '99 Minutos',
-  'Otra',
-]
-
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos' },
+  { value: '__pending_ship', label: 'Por despachar' },
   { value: 'pending', label: 'Pago pendiente', kind: 'payment' as const },
   { value: 'approved', label: 'Pagados', kind: 'payment' as const },
   { value: 'declined', label: 'Declinados', kind: 'payment' as const },
@@ -50,26 +44,39 @@ const STATUS_OPTIONS = [
   { value: 'cancelado', label: 'Cancelados', kind: 'order' as const },
 ]
 
-export default function OrdersPage() {
+function OrdersPageInner() {
+  const router = useRouter()
+  const params = useSearchParams()
+  const initial = params.get('filter') === 'por-despachar' ? '__pending_ship' : ''
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('')
+  const [filter, setFilter] = useState(initial)
   const [search, setSearch] = useState('')
-  const [shipping, setShipping] = useState<Order | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    const opt = STATUS_OPTIONS.find((o) => o.value === filter)
-    if (opt?.kind === 'payment') params.set('payment_status', filter)
-    if (opt?.kind === 'order') params.set('status', filter)
-    if (search.trim()) params.set('search', search.trim())
-    params.set('limit', '100')
+    const query = new URLSearchParams()
+    if (filter === '__pending_ship') {
+      query.set('payment_status', 'approved')
+    } else {
+      const opt = STATUS_OPTIONS.find((o) => o.value === filter)
+      if (opt && 'kind' in opt) {
+        if (opt.kind === 'payment') query.set('payment_status', filter)
+        if (opt.kind === 'order') query.set('status', filter)
+      }
+    }
+    if (search.trim()) query.set('search', search.trim())
+    query.set('limit', '100')
 
-    const res = await botFetch(`/api/admin/web/orders?${params.toString()}`, { method: 'GET' })
+    const res = await botFetch(`/api/admin/web/orders?${query.toString()}`, { method: 'GET' })
     if (res.ok) {
       const body = await res.json()
-      setOrders(body.orders ?? [])
+      let rows: Order[] = body.orders ?? []
+      if (filter === '__pending_ship') {
+        rows = rows.filter((o) => !o.tracking_number && o.status !== 'cancelado' && o.status !== 'entregado')
+      }
+      setOrders(rows)
     } else {
       setOrders([])
     }
@@ -80,17 +87,26 @@ export default function OrdersPage() {
     load()
   }, [load])
 
+  function onFilterChange(v: string) {
+    setFilter(v)
+    if (v === '__pending_ship') {
+      router.replace('/orders?filter=por-despachar')
+    } else {
+      router.replace('/orders')
+    }
+  }
+
   return (
     <div className="p-6">
       <h1 className="text-xl font-semibold mb-1">Pedidos</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Lista de órdenes recientes. Marca como enviado para notificar al cliente por WhatsApp.
+        Click en una fila para ver el detalle del pedido y del cliente.
       </p>
 
       <div className="flex gap-3 mb-4 flex-wrap">
         <select
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(e) => onFilterChange(e.target.value)}
           className="px-3 py-2 text-sm border border-gray-300 rounded bg-white"
         >
           {STATUS_OPTIONS.map((o) => (
@@ -124,30 +140,25 @@ export default function OrdersPage() {
               <th className="px-4 py-2">Estado pago</th>
               <th className="px-4 py-2">Estado envío</th>
               <th className="px-4 py-2">Fecha</th>
-              <th className="px-4 py-2 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                  Cargando…
-                </td>
-              </tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Cargando…</td></tr>
             ) : orders.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                  No hay pedidos para esos filtros.
-                </td>
-              </tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No hay pedidos.</td></tr>
             ) : (
               orders.map((o) => (
-                <tr key={o.id} className="border-t border-gray-100">
+                <tr
+                  key={o.id}
+                  onClick={() => setSelected(o.short_id)}
+                  className="border-t border-gray-100 cursor-pointer hover:bg-blue-50"
+                >
                   <td className="px-4 py-3 font-mono text-xs">#{o.short_id}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{o.customer_name ?? '—'}</div>
                     <div className="text-xs text-gray-500 truncate max-w-[180px]">
-                      {o.customer_email ?? o.customer_phone}
+                      {o.customer_email ?? `+${o.customer_phone}`}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -156,9 +167,7 @@ export default function OrdersPage() {
                       .join(', ') || '—'}
                   </td>
                   <td className="px-4 py-3 font-medium">${Number(o.total).toLocaleString('es-CO')}</td>
-                  <td className="px-4 py-3">
-                    <PaymentBadge status={o.payment_status} />
-                  </td>
+                  <td className="px-4 py-3"><PaymentBadge status={o.payment_status} /></td>
                   <td className="px-4 py-3">
                     {o.tracking_number ? (
                       <div className="text-xs">
@@ -172,16 +181,6 @@ export default function OrdersPage() {
                   <td className="px-4 py-3 text-xs text-gray-500">
                     {new Date(o.created_at).toLocaleDateString('es-CO')}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    {o.payment_status === 'approved' && !o.tracking_number && (
-                      <button
-                        onClick={() => setShipping(o)}
-                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Marcar enviado
-                      </button>
-                    )}
-                  </td>
                 </tr>
               ))
             )}
@@ -189,16 +188,11 @@ export default function OrdersPage() {
         </table>
       </div>
 
-      {shipping && (
-        <ShipModal
-          order={shipping}
-          onClose={() => setShipping(null)}
-          onDone={() => {
-            setShipping(null)
-            load()
-          }}
-        />
-      )}
+      <OrderDrawer
+        shortId={selected}
+        onClose={() => setSelected(null)}
+        onChanged={load}
+      />
     </div>
   )
 }
@@ -215,102 +209,10 @@ function PaymentBadge({ status }: { status: string }) {
   return <span className={`px-2 py-1 text-xs rounded ${v.cls}`}>{v.label}</span>
 }
 
-function ShipModal({
-  order,
-  onClose,
-  onDone,
-}: {
-  order: Order
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [carrier, setCarrier] = useState(CARRIERS[0])
-  const [customCarrier, setCustomCarrier] = useState('')
-  const [tracking, setTracking] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSubmit() {
-    const finalCarrier = carrier === 'Otra' ? customCarrier.trim() : carrier
-    if (!finalCarrier || !tracking.trim()) {
-      setError('Carrier y número de guía son requeridos.')
-      return
-    }
-    setError(null)
-    setSubmitting(true)
-
-    const res = await botFetch(`/api/admin/web/orders/${order.short_id}/ship`, {
-      method: 'POST',
-      body: JSON.stringify({
-        tracking_number: tracking.trim(),
-        shipping_carrier: finalCarrier,
-      }),
-    })
-    setSubmitting(false)
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      setError(body.error || 'No se pudo marcar como enviado.')
-      return
-    }
-    onDone()
-  }
-
+export default function OrdersPage() {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h2 className="text-lg font-semibold mb-1">Marcar como enviado</h2>
-        <p className="text-xs text-gray-500 mb-4">
-          Pedido #{order.short_id} · {order.customer_name ?? order.customer_phone}
-        </p>
-
-        <label className="block text-xs text-gray-600 mb-1">Transportadora</label>
-        <select
-          value={carrier}
-          onChange={(e) => setCarrier(e.target.value)}
-          className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 rounded bg-white"
-        >
-          {CARRIERS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-
-        {carrier === 'Otra' && (
-          <input
-            placeholder="Nombre de la transportadora"
-            value={customCarrier}
-            onChange={(e) => setCustomCarrier(e.target.value)}
-            className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 rounded"
-          />
-        )}
-
-        <label className="block text-xs text-gray-600 mb-1">Número de guía</label>
-        <input
-          value={tracking}
-          onChange={(e) => setTracking(e.target.value)}
-          className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 rounded font-mono"
-          autoFocus
-        />
-
-        {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
-
-        <div className="flex justify-end gap-2 mt-4">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs uppercase tracking-wide text-gray-700 border border-gray-300 rounded"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-4 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded disabled:opacity-50"
-          >
-            {submitting ? 'Enviando…' : 'Marcar y notificar'}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Cargando…</div>}>
+      <OrdersPageInner />
+    </Suspense>
   )
 }
