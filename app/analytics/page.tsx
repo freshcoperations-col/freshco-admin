@@ -25,6 +25,14 @@ function formatCOP(n: number) {
   return '$' + Math.round(n).toLocaleString('es-CO')
 }
 
+// Versión corta para el eje Y: $70k, $1.2M, etc.
+function formatAxisY(n: number): string {
+  if (n === 0) return '$0'
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}k`
+  return `$${Math.round(n)}`
+}
+
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5">
@@ -187,34 +195,55 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* h-36 = 144px; 96px para barras, resto para etiquetas */}
-        <div className="flex items-end gap-0.5" style={{ height: '144px' }}>
-          {filteredSeries.map((d, i) => {
-            const BAR_MAX_PX = 96
-            const barPx = maxRev > 0 ? Math.round((d.revenue / maxRev) * BAR_MAX_PX) : 0
-            const step = range === 7 ? 1 : range === 30 ? 5 : 10
-            const showLabel = i % step === 0
-            const label = d.date.slice(5).replace('-', '/')
-            return (
-              <div
-                key={d.date}
-                className="flex-1 flex flex-col items-center justify-end min-w-0"
-                style={{ height: '144px' }}
-                title={`${d.date}: ${formatCOP(d.revenue)} (${d.orders} pedidos)`}
-              >
-                <div
-                  className={`w-full rounded-t-sm transition-colors ${d.revenue > 0 ? 'bg-blue-500' : 'bg-gray-100'}`}
-                  style={{ height: `${Math.max(barPx, d.revenue > 0 ? 3 : 0)}px` }}
-                />
-                <span
-                  className="text-gray-400 font-mono mt-1 overflow-hidden"
-                  style={{ fontSize: '8px', opacity: showLabel ? 1 : 0, flexShrink: 0 }}
-                >
-                  {label}
-                </span>
-              </div>
-            )
-          })}
+        {/* Gráfica: eje Y + barras */}
+        <div className="flex gap-2">
+
+          {/* Eje Y — 3 referencias: máximo, mitad, cero */}
+          <div className="flex flex-col justify-between text-right flex-shrink-0" style={{ width: '56px', height: '120px' }}>
+            <span className="text-xs text-gray-400 font-mono">{formatAxisY(maxRev)}</span>
+            <span className="text-xs text-gray-400 font-mono">{formatAxisY(maxRev / 2)}</span>
+            <span className="text-xs text-gray-400 font-mono">$0</span>
+          </div>
+
+          {/* Área de barras con líneas de referencia */}
+          <div className="flex-1 relative" style={{ height: '120px' }}>
+            {/* Líneas horizontales de referencia */}
+            <div className="absolute inset-x-0 pointer-events-none" style={{ top: 0, height: '96px' }}>
+              <div className="absolute inset-x-0 top-0 border-t border-gray-100" />
+              <div className="absolute inset-x-0 border-t border-gray-100" style={{ top: '50%' }} />
+              <div className="absolute inset-x-0 bottom-0 border-t border-gray-200" />
+            </div>
+
+            {/* Barras */}
+            <div className="absolute inset-x-0 bottom-0 flex items-end gap-0.5" style={{ height: '120px' }}>
+              {filteredSeries.map((d, i) => {
+                const BAR_MAX_PX = 96
+                const barPx = maxRev > 0 ? Math.round((d.revenue / maxRev) * BAR_MAX_PX) : 0
+                const step = range === 7 ? 1 : range === 30 ? 5 : 10
+                const showLabel = i % step === 0
+                const label = d.date.slice(5).replace('-', '/')
+                return (
+                  <div
+                    key={d.date}
+                    className="flex-1 flex flex-col items-center justify-end min-w-0"
+                    style={{ height: '120px' }}
+                    title={`${d.date}: ${formatCOP(d.revenue)}${d.orders > 0 ? ` · ${d.orders} pedido${d.orders !== 1 ? 's' : ''}` : ''}`}
+                  >
+                    <div
+                      className={`w-full rounded-t-sm transition-colors ${d.revenue > 0 ? 'bg-blue-500 hover:bg-blue-400' : 'bg-transparent'}`}
+                      style={{ height: `${Math.max(barPx, d.revenue > 0 ? 3 : 0)}px` }}
+                    />
+                    <span
+                      className="text-gray-400 font-mono mt-1 overflow-hidden"
+                      style={{ fontSize: '8px', opacity: showLabel ? 1 : 0, flexShrink: 0 }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {filteredSeries.every((d) => d.revenue === 0) && (
