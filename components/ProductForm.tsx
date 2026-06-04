@@ -76,6 +76,11 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [printingMethod, setPrintingMethod] = useState(String(initial?.printing_method ?? ''))
 
   const [freeShipping, setFreeShipping] = useState(Boolean(initial?.free_shipping))
+  const [model3dKeys, setModel3dKeys] = useState<Record<string, number>>({})
+  const [uploadingModel, setUploadingModel] = useState<Record<string, boolean>>({})
+  const model3dFileRef = useRef<HTMLInputElement>(null)
+  const [pendingModel, setPendingModel] = useState<string | null>(null)
+
   const [extraImages, setExtraImages] = useState<Array<{ url: string; type: string; color: string | null; label: string | null }>>(
     Array.isArray(initial?.images) ? (initial.images as Array<{ url: string; type: string; color: string | null; label: string | null }>) : [],
   )
@@ -396,7 +401,80 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
         </Section>
       )}
 
-          {/* Fotos adicionales (modelos, detalles, etc.) */}
+          {/* Modelos 3D */}
+      {colors.length > 0 && !isNew && productId && (
+        <Section title="Modelos 3D (opcional)">
+          <p className="text-xs text-gray-500 mb-4">
+            Sube el archivo <code className="bg-gray-100 px-1 rounded">.glb</code> para cada color.
+            La web muestra el visor 3D automáticamente si el archivo existe.
+            Nombre generado: <code className="bg-gray-100 px-1 rounded">{productId}-3d-{'{color}'}.glb</code>
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            {colors.map((color) => {
+              const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
+              const modelFilename = `${productId}-3d-${colorSlug}.glb`
+              const modelUrl = `${STORAGE_BASE}${encodeURIComponent(modelFilename)}`
+              const key = model3dKeys[color] ?? 0
+              const isUp = uploadingModel[color]
+              return (
+                <div key={color} className="border border-gray-200 rounded-lg p-3">
+                  <div className="text-sm font-medium mb-2">{color}</div>
+                  <div className="text-xs text-gray-400 font-mono mb-2 truncate">{modelFilename}</div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={isUp}
+                      onClick={() => { setPendingModel(color); model3dFileRef.current?.click() }}
+                      className="flex-1 py-1.5 text-xs border border-gray-300 rounded hover:border-gray-500 disabled:opacity-50"
+                    >
+                      {isUp ? 'Subiendo…' : '↑ Subir .glb'}
+                    </button>
+                    <a
+                      href={`${modelUrl}?t=${key}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 py-1.5 text-xs border border-gray-200 rounded text-gray-500 hover:text-gray-800"
+                      title="Ver archivo (si existe)"
+                    >
+                      Ver
+                    </a>
+                  </div>
+                  {key > 0 && (
+                    <p className="text-xs text-green-600 mt-1">✓ Subido correctamente</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <input
+            ref={model3dFileRef}
+            type="file"
+            accept=".glb,.gltf"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file || !pendingModel) return
+              setUploadingModel((prev) => ({ ...prev, [pendingModel]: true }))
+              const fd = new FormData()
+              fd.append('file', file)
+              fd.append('color', pendingModel)
+              const res = await botFetch(`/api/admin/web/products/${productId}/upload-model`, { method: 'POST', headers: {}, body: fd })
+              setUploadingModel((prev) => ({ ...prev, [pendingModel!]: false }))
+              if (res.ok) {
+                setModel3dKeys((prev) => ({ ...prev, [pendingModel!]: Date.now() }))
+                showToast(`Modelo 3D de ${pendingModel} subido ✅`)
+              } else {
+                const b = await res.json().catch(() => ({}))
+                showToast(b.error || 'Error al subir modelo')
+              }
+              if (model3dFileRef.current) model3dFileRef.current.value = ''
+              setPendingModel(null)
+            }}
+          />
+        </Section>
+      )}
+
+      {/* Fotos adicionales (modelos, detalles, etc.) */}
       {!isNew && productId && (
         <Section title="Fotos adicionales (modelos, detalles, otras vistas)">
           <p className="text-xs text-gray-500 mb-3">
