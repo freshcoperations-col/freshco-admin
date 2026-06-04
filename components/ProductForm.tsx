@@ -33,11 +33,19 @@ interface ProductFormProps {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  back: 'Trasera (con estampado)',
-  front: 'Delantera',
+  back: 'Vista principal',
+  front: 'Vista secundaria',
   lifestyle: 'Modelo / Lifestyle',
   detail: 'Detalle / Close-up',
   flat: 'Flat / Packshot',
+}
+
+const TYPE_DESCRIPTIONS: Record<string, string> = {
+  back: 'La foto más importante — la que aparece en el catálogo y la manda el bot. Para camisetas/buzos: la trasera con el estampado. Para gorras: el panel frontal con el diseño. Para pantalones: vista trasera.',
+  front: 'Segunda foto en la galería. Para camisetas/buzos: la delantera. Para gorras: vista lateral o interior. Para pantalones: vista delantera.',
+  lifestyle: 'Foto de modelo usando la prenda. Aparece en la galería del producto después de las vistas principales.',
+  detail: 'Close-up del estampado, bordado, material o cualquier detalle que valga la pena destacar.',
+  flat: 'Foto plana (prenda extendida sin modelo). Útil como referencia de forma y talla.',
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -346,7 +354,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
           <p className="text-xs text-gray-500 mb-4">
             {isNew && !productId
               ? 'Guarda el producto primero para poder subir imágenes.'
-              : 'Sube la imagen delantera y trasera para cada color. Se reemplaza si ya existe.'}
+              : 'Para camisetas y buzos: sube la delantera y la trasera (con el estampado). Para gorras y pantalones: usa en cambio la sección "Fotos adicionales" con tipo "Vista principal" y "Vista secundaria" — el sistema las detecta automáticamente.'}
           </p>
           <div className="space-y-6">
             {colors.map((color) => (
@@ -477,10 +485,18 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       {/* Fotos adicionales (modelos, detalles, etc.) */}
       {!isNew && productId && (
         <Section title="Fotos adicionales (modelos, detalles, otras vistas)">
-          <p className="text-xs text-gray-500 mb-3">
-            Úsalas para fotos de modelos usando la prenda, close-ups del estampado, vistas adicionales.
-            Se muestran en la galería del producto en la web. Para pantalones/gorras, sube aquí la foto principal con tipo "Trasera" o "Delantera".
-          </p>
+          <div className="text-xs text-gray-500 mb-4 space-y-1.5 bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <p className="font-medium text-gray-700 mb-2">¿Qué subir aquí según el tipo de prenda?</p>
+            {Object.entries(TYPE_DESCRIPTIONS).map(([type, desc]) => (
+              <div key={type} className="flex gap-2">
+                <span className="font-medium text-gray-700 w-28 flex-shrink-0">{TYPE_LABELS[type]}:</span>
+                <span>{desc}</span>
+              </div>
+            ))}
+            <p className="mt-2 text-gray-400 border-t border-gray-200 pt-2">
+              💡 Para gorras y pantalones: sube "Vista principal" aquí — el bot y el catálogo la usarán como foto principal automáticamente.
+            </p>
+          </div>
 
           {/* Imágenes existentes */}
           {extraImages.length > 0 && (
