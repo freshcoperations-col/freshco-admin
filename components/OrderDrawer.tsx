@@ -60,7 +60,7 @@ export function OrderDrawer({
 }) {
   const [data, setData] = useState<{ order: Order; recent_messages: Message[] } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [action, setAction] = useState<'idle' | 'ship' | 'update_shipping' | 'deliver' | 'cancel' | 'resend'>('idle')
+  const [action, setAction] = useState<'idle' | 'ship' | 'update_shipping' | 'deliver' | 'undeliver' | 'cancel' | 'resend' | 'delete_order'>('idle')
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -143,9 +143,29 @@ export function OrderDrawer({
                   </li>
                 ))}
               </ul>
-              <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between font-semibold">
-                <span>Total</span>
-                <span>${Number(data.order.total).toLocaleString('es-CO')}</span>
+              <div className="mt-3 pt-3 border-t border-gray-200 space-y-1">
+                {(() => {
+                  const subtotal = (data.order.items ?? []).reduce(
+                    (s, it) => s + (it.unit_price ?? 0) * (it.quantity ?? 1), 0)
+                  const shipping = Number(data.order.total) - subtotal
+                  return (
+                    <>
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Subtotal</span><span>${subtotal.toLocaleString('es-CO')}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Envío</span>
+                        <span className={shipping === 0 ? 'text-green-600' : ''}>
+                          {shipping === 0 ? '¡Gratis!' : `$${shipping.toLocaleString('es-CO')}`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t border-gray-200 pt-1 mt-1">
+                        <span>Total</span>
+                        <span>${Number(data.order.total).toLocaleString('es-CO')}</span>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             </Section>
 
@@ -193,13 +213,21 @@ export function OrderDrawer({
                     </button>
                   )}
                   {!data.order.tracking_number && data.order.status !== 'cancelado' && (
-                    <button
-                      onClick={() => setAction('cancel')}
-                      className="px-4 py-2 text-xs uppercase tracking-wide border border-red-300 text-red-700 rounded"
-                    >
+                    <button onClick={() => setAction('cancel')}
+                      className="px-4 py-2 text-xs uppercase tracking-wide border border-red-300 text-red-700 rounded">
                       Cancelar pedido
                     </button>
                   )}
+                  {data.order.status === 'entregado' && (
+                    <button onClick={() => setAction('undeliver')}
+                      className="px-4 py-2 text-xs uppercase tracking-wide border border-orange-300 text-orange-700 rounded">
+                      Desmarcar entregado
+                    </button>
+                  )}
+                  <button onClick={() => setAction('delete_order')}
+                    className="px-4 py-2 text-xs uppercase tracking-wide border border-red-400 text-red-800 rounded">
+                    Eliminar pedido
+                  </button>
                 </div>
               )}
 
@@ -219,6 +247,30 @@ export function OrderDrawer({
                   working={working}
                   setWorking={setWorking}
                   isUpdate
+                />
+              )}
+
+              {action === 'undeliver' && (
+                <UndeliverForm
+                  order={data.order}
+                  onCancel={() => setAction('idle')}
+                  onDone={() => {
+                    setToast('Estado revertido a "En camino". Cliente notificado.')
+                    onChanged()
+                    setAction('idle')
+                    setTimeout(() => setToast(null), 3000)
+                    botFetch(`/api/admin/web/orders/${shortId}`, { method: 'GET' }).then((r) => r.json()).then(setData)
+                  }}
+                  working={working} setWorking={setWorking}
+                />
+              )}
+
+              {action === 'delete_order' && (
+                <DeleteOrderForm
+                  order={data.order}
+                  onCancel={() => setAction('idle')}
+                  onDone={() => { onChanged(); onClose() }}
+                  working={working} setWorking={setWorking}
                 />
               )}
 
@@ -489,6 +541,65 @@ function ResendForm({
           className="px-3 py-2 text-xs bg-amber-600 text-white rounded disabled:opacity-50"
         >
           {working ? 'Enviando…' : 'Reenviar ahora'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function UndeliverForm({ order, onCancel, onDone, working, setWorking }: {
+  order: Order; onCancel: () => void; onDone: () => void; working: boolean; setWorking: (b: boolean) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  async function submit() {
+    if (!confirm(`¿Revertir el pedido #${order.short_id} de "${order.customer_name ?? order.customer_phone}" a "En camino"? Se notificará al cliente.`)) return
+    setErr(null); setWorking(true)
+    const res = await botFetch(`/api/admin/web/orders/${order.short_id}/undeliver`, {
+      method: 'POST', body: JSON.stringify({ reason: reason.trim() || undefined }),
+    })
+    setWorking(false)
+    if (!res.ok) { const b = await res.json().catch(() => ({})); setErr(b.error || 'No se pudo revertir.'); return }
+    onDone()
+  }
+  return (
+    <div className="border border-orange-200 rounded p-4 bg-orange-50">
+      <p className="text-sm mb-3">El cliente recibirá un WhatsApp indicando que hubo un error y su pedido sigue en proceso.</p>
+      <label className="block text-xs text-gray-600 mb-1">Motivo (opcional — el cliente lo verá)</label>
+      <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+        placeholder="Ej: Marcamos como entregado por error, tu pedido sigue en camino."
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded resize-none mb-3" />
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="px-3 py-2 text-xs border border-gray-300 rounded">Cancelar</button>
+        <button onClick={submit} disabled={working} className="px-3 py-2 text-xs bg-orange-600 text-white rounded disabled:opacity-50">
+          {working ? 'Revirtiendo…' : 'Revertir y notificar'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DeleteOrderForm({ order, onCancel, onDone, working, setWorking }: {
+  order: Order; onCancel: () => void; onDone: () => void; working: boolean; setWorking: (b: boolean) => void
+}) {
+  const [err, setErr] = useState<string | null>(null)
+  async function submit() {
+    if (!confirm(`¿Eliminar DEFINITIVAMENTE el pedido #${order.short_id} de "${order.customer_name ?? order.customer_phone}"?\n\nEsta acción NO se puede deshacer.`)) return
+    setErr(null); setWorking(true)
+    const res = await botFetch(`/api/admin/web/orders/${order.short_id}/delete`, { method: 'DELETE' })
+    setWorking(false)
+    if (!res.ok) { const b = await res.json().catch(() => ({})); setErr(b.error || 'No se pudo eliminar.'); return }
+    onDone()
+  }
+  return (
+    <div className="border border-red-300 rounded p-4 bg-red-50">
+      <p className="text-sm text-red-800 mb-3 font-medium">⚠️ Esta acción borra el pedido definitivamente y no se puede deshacer.</p>
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="px-3 py-2 text-xs border border-gray-300 rounded">Cancelar</button>
+        <button onClick={submit} disabled={working} className="px-3 py-2 text-xs bg-red-700 text-white rounded disabled:opacity-50">
+          {working ? 'Eliminando…' : 'Sí, eliminar pedido'}
         </button>
       </div>
     </div>

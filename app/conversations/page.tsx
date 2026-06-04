@@ -44,7 +44,21 @@ export default function ConversationsPage() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [aiPaused, setAiPaused] = useState(false)
+  const [advisorName, setAdvisorName] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Obtener nombre del asesor logueado para el saludo
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      const u = data.user
+      const name =
+        (u?.user_metadata?.full_name as string | undefined) ||
+        (u?.user_metadata?.name as string | undefined) ||
+        u?.email?.split('@')[0] ||
+        'Asesor'
+      setAdvisorName(name)
+    })
+  }, [])
 
   const loadConversations = useCallback(async () => {
     const res = await botFetch('/api/admin/web/conversations', { method: 'GET' })
@@ -118,7 +132,10 @@ export default function ConversationsPage() {
     const newPaused = !aiPaused
     await botFetch(`/api/admin/web/conversations/${selected}/toggle-ai`, {
       method: 'POST',
-      body: JSON.stringify({ paused: newPaused }),
+      body: JSON.stringify({
+        paused: newPaused,
+        advisor_name: newPaused ? advisorName : undefined,
+      }),
     })
     setAiPaused(newPaused)
     setConversations((prev) =>
@@ -126,6 +143,15 @@ export default function ConversationsPage() {
         c.customer_phone === selected ? { ...c, ai_paused: newPaused } : c,
       ),
     )
+  }
+
+  async function handleDeleteConv() {
+    if (!selected) return
+    if (!confirm(`¿Eliminar todos los mensajes de +${selected}?\n\nEsta acción no se puede deshacer.`)) return
+    await botFetch(`/api/admin/web/conversations/${selected}/delete`, { method: 'DELETE' })
+    setSelected(null)
+    setMessages([])
+    loadConversations()
   }
 
   const filtered = conversations.filter((c) => {
@@ -169,7 +195,8 @@ export default function ConversationsPage() {
           <ChatView phone={selected} conversations={conversations} messages={messages}
             loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
             draft={draft} setDraft={setDraft} sending={sending}
-            onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend} />
+            onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend}
+            onDeleteConv={handleDeleteConv} />
         )}
       </div>
 
@@ -205,7 +232,8 @@ export default function ConversationsPage() {
             <ChatView phone={selected} conversations={conversations} messages={messages}
               loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
               draft={draft} setDraft={setDraft} sending={sending}
-              onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend} />
+              onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend}
+              onDeleteConv={handleDeleteConv} />
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
               Selecciona una conversación
@@ -218,7 +246,7 @@ export default function ConversationsPage() {
 }
 
 function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef, aiPaused,
-  draft, setDraft, sending, onBack, onToggleAI, onSend }: {
+  draft, setDraft, sending, onBack, onToggleAI, onSend, onDeleteConv }: {
   phone: string
   conversations: { customer_phone: string; total_messages: number }[]
   messages: { id: string; direction: string; content: string; intent: string | null; created_at: string }[]
@@ -231,6 +259,7 @@ function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef,
   onBack: () => void
   onToggleAI: () => void
   onSend: () => void
+  onDeleteConv: () => void
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -244,10 +273,17 @@ function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef,
             </div>
           </div>
         </div>
-        <button onClick={onToggleAI}
-          className={`px-3 py-1.5 text-xs rounded border font-medium ${aiPaused ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-green-50 border-green-300 text-green-700'}`}>
-          {aiPaused ? '🟠 Pausado' : '🟢 AI activo'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onToggleAI}
+            className={`px-3 py-1.5 text-xs rounded border font-medium ${aiPaused ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-green-50 border-green-300 text-green-700'}`}>
+            {aiPaused ? '🟠 Pausado' : '🟢 AI activo'}
+          </button>
+          <button onClick={onDeleteConv}
+            className="px-2 py-1.5 text-xs rounded border border-red-200 text-red-600 hover:bg-red-50"
+            title="Eliminar conversación">
+            🗑
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50">
         {loadingMsgs ? (
