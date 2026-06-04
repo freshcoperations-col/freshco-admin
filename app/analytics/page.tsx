@@ -92,10 +92,13 @@ export default function AnalyticsPage() {
   }
 
   const orderStatusLabels: Record<string, { label: string; color: string }> = {
-    pending:   { label: 'Pendiente', color: 'bg-amber-400' },
-    enviado:   { label: 'En camino', color: 'bg-blue-500' },
-    entregado: { label: 'Entregado', color: 'bg-green-500' },
-    cancelled: { label: 'Cancelado', color: 'bg-gray-400' },
+    pending:      { label: 'Pendiente',    color: 'bg-amber-400' },
+    confirmado:   { label: 'Confirmado',   color: 'bg-amber-400' },
+    enviado:      { label: 'En camino',    color: 'bg-blue-500' },
+    entregado:    { label: 'Entregado',    color: 'bg-green-500' },
+    cancelled:    { label: 'Cancelado',    color: 'bg-gray-400' },
+    cancelado:    { label: 'Cancelado',    color: 'bg-gray-400' },
+    pago_fallido: { label: 'Pago fallido', color: 'bg-red-400' },
   }
 
   const conversionRate = kpis.total_orders > 0
@@ -122,34 +125,34 @@ export default function AnalyticsPage() {
         <StatCard
           label="Ingresos totales"
           value={formatCOP(kpis.total_revenue)}
-          sub={`${formatCOP(last30Revenue)} últimos 30 días`}
+          sub="Suma de todos los pedidos pagados"
           accent="text-green-700"
         />
         <StatCard
-          label="Pedidos aprobados"
+          label="Pedidos pagados"
           value={String(kpis.approved_orders)}
-          sub={`de ${kpis.total_orders} en total`}
+          sub={`${kpis.total_orders} pedidos iniciados en total`}
         />
         <StatCard
-          label="Ticket promedio"
+          label="Valor promedio por pedido"
           value={formatCOP(Math.round(kpis.avg_order_value))}
-          sub="en pedidos aprobados"
+          sub="Cuánto paga cada cliente en promedio"
         />
         <StatCard
-          label="Clientes únicos"
+          label="Clientes distintos"
           value={String(kpis.unique_customers)}
-          sub={`${kpis.returning_customers} con más de 1 pedido`}
+          sub={`${kpis.returning_customers} han comprado más de una vez`}
         />
         <StatCard
-          label="Tasa de conversión"
+          label="Tasa de pago"
           value={`${conversionRate}%`}
-          sub="pedidos pagados vs total"
+          sub={`${kpis.approved_orders} de ${kpis.total_orders} pedidos iniciados terminaron en pago`}
           accent={conversionRate >= 50 ? 'text-green-700' : 'text-amber-600'}
         />
         <StatCard
           label="Pendientes de pago"
           value={String(by_payment_status['pending'] ?? 0)}
-          sub="esperando confirmación"
+          sub="Pedidos con link enviado pero sin confirmar"
           accent={(by_payment_status['pending'] ?? 0) > 0 ? 'text-amber-600' : 'text-gray-900'}
         />
       </div>
