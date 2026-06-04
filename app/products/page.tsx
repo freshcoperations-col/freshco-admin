@@ -13,6 +13,9 @@ interface Product {
   on_sale: boolean
   stock: number
   available: boolean
+  featured: boolean | null
+  on_sale: boolean
+  free_shipping: boolean | null
   colors: string[] | null
   sizes: string[] | null
   visual_tags: string[] | null
@@ -119,6 +122,7 @@ export default function ProductsPage() {
               <th className="px-4 py-2">Producto</th>
               <th className="px-4 py-2">Precio</th>
               <th className="px-4 py-2">Stock</th>
+              <th className="px-4 py-2">Badges</th>
               <th className="px-4 py-2">Tags visuales</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2 text-right">Acciones</th>
@@ -127,11 +131,11 @@ export default function ProductsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">Cargando…</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">Cargando…</td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">Sin productos.</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">Sin productos.</td>
               </tr>
             ) : (
               products.map((p) => (
@@ -151,18 +155,35 @@ export default function ProductsPage() {
                   <td className="px-4 py-3">
                     <div className="font-medium">{p.name}</div>
                     <div className="text-xs text-gray-500">{p.garment_type_label ?? ''}</div>
-                  </td>
-                  <td className="px-4 py-3 font-medium">
-                    ${(p.on_sale && p.sale_price ? p.sale_price : p.price).toLocaleString('es-CO')}
+                    {p.featured && <div className="text-xs text-amber-600 mt-0.5">⭐ Destacado</div>}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`text-xs ${
-                        p.stock === 0 ? 'text-red-600' : p.stock <= 3 ? 'text-amber-600' : 'text-gray-700'
-                      }`}
-                    >
+                    {p.on_sale && p.sale_price ? (
+                      <div>
+                        <div className="font-medium text-red-600">${Number(p.sale_price).toLocaleString('es-CO')}</div>
+                        <div className="text-xs text-gray-400 line-through">${Number(p.price).toLocaleString('es-CO')}</div>
+                      </div>
+                    ) : (
+                      <div className="font-medium">${Number(p.price).toLocaleString('es-CO')}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs ${p.stock === 0 ? 'text-red-600' : p.stock <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>
                       {p.stock} unidades
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {p.on_sale && (
+                        <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-medium">SALE</span>
+                      )}
+                      {p.free_shipping && (
+                        <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">Envío gratis</span>
+                      )}
+                      {!p.on_sale && !p.free_shipping && (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1 max-w-md">
@@ -184,6 +205,9 @@ export default function ProductsPage() {
                       <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Activo</span>
                     ) : (
                       <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded">Pausado</span>
+                    )}
+                    {p.stock === 0 && p.available && (
+                      <div className="text-xs text-red-500 mt-1">Sin stock</div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
