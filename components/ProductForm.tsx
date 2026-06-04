@@ -461,21 +461,33 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
             className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0]
-              const color = pendingModel  // capturar antes de cualquier await
+              const color = pendingModel
               if (!file || !color) return
               setUploadingModel((prev) => ({ ...prev, [color]: true }))
               try {
-                const fd = new FormData()
-                fd.append('file', file)
-                fd.append('color', color)
-                const res = await botFetch(`/api/admin/web/products/${productId}/upload-model`, { method: 'POST', headers: {}, body: fd })
-                if (res.ok) {
-                  setModel3dKeys((prev) => ({ ...prev, [color]: Date.now() }))
-                  showToast(`Modelo 3D de ${color} subido ✅`)
-                } else {
-                  const b = await res.json().catch(() => ({}))
-                  showToast(b.error || 'Error al subir modelo')
+                const ext = file.name.split('.').pop()?.toLowerCase() || 'glb'
+                // 1. Obtener URL firmada (sin pasar el archivo por Vercel)
+                const urlRes = await botFetch(
+                  `/api/admin/web/products/${productId}/upload-model-url?color=${encodeURIComponent(color)}&ext=${ext}`,
+                )
+                if (!urlRes.ok) {
+                  const b = await urlRes.json().catch(() => ({}))
+                  throw new Error(b.error || 'No se pudo obtener URL de subida')
                 }
+                const { signedUrl } = await urlRes.json()
+
+                // 2. Subir DIRECTAMENTE a Supabase Storage (sin pasar por Vercel)
+                const uploadRes = await fetch(signedUrl, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/octet-stream' },
+                  body: file,
+                })
+                if (!uploadRes.ok) {
+                  const txt = await uploadRes.text().catch(() => '')
+                  throw new Error(`Error al subir: ${uploadRes.status} ${txt.slice(0, 100)}`)
+                }
+                setModel3dKeys((prev) => ({ ...prev, [color]: Date.now() }))
+                showToast(`Modelo 3D de ${color} subido ✅`)
               } catch (err) {
                 showToast(err instanceof Error ? err.message : 'Error de conexión')
               } finally {
