@@ -309,8 +309,31 @@ export default function ProductsPage() {
                   {p.on_sale && <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-700 rounded-full font-medium">SALE</span>}
                   {p.free_shipping && <span className="px-2 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">Envío gratis</span>}
                   {!p.available && <span className="px-2 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full font-medium">Pausado</span>}
+                  {p.out_of_stock && <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">Agotado</span>}
                 </div>
+                {(p.colors ?? []).length > 0 && (
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    {(p.colors ?? []).map((c) => (
+                      <span key={c} className="text-[10px] text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">{c}</span>
+                    ))}
+                  </div>
+                )}
               </div>
+            </div>
+            {/* Botones de acción móvil */}
+            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setEditing(p)}
+                className="flex-1 py-1.5 text-xs border border-gray-300 rounded text-center">Tags</button>
+              <button onClick={() => toggleAvailable(p)}
+                className="flex-1 py-1.5 text-xs border border-gray-300 rounded text-center">
+                {p.available ? 'Ocultar' : 'Mostrar'}
+              </button>
+              <button onClick={() => toggleOutOfStock(p)} disabled={p.stock === 0}
+                className={`flex-1 py-1.5 text-xs border rounded text-center disabled:opacity-40 ${
+                  p.out_of_stock ? 'border-green-300 text-green-700' : 'border-red-200 text-red-600'
+                }`}>
+                {p.out_of_stock ? 'Disponible' : 'Agotado'}
+              </button>
             </div>
           </div>
         ))}
