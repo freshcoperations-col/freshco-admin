@@ -98,11 +98,10 @@ export function AdminSidebar({ onClose }: { onClose?: () => void }) {
         {NAV.map((item) => {
           const active = item.match(pathname)
           const showBadge = item.href === '/orders' && pendingShip > 0
-          const href = showBadge ? '/orders?filter=por-despachar' : item.href
           return (
             <Link
               key={item.href}
-              href={href}
+              href={item.href}
               onClick={onClose}
               className={`flex items-center justify-between px-4 py-3 hover:bg-gray-50 ${
                 active ? 'bg-gray-100 font-semibold' : 'text-gray-700'
