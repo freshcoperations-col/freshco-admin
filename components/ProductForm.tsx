@@ -7,7 +7,9 @@ import { uploadProductImage } from '@/lib/upload'
 interface GarmentType { id: string; label: string }
 interface Collection { id: string; label: string }
 
-const SIZES_DEFAULT = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const SIZES_SHIRT = ['XS', 'S', 'M', 'L', 'XL', 'XXL']  // camisetas y hoodies
+const SIZES_CAP   = ['S/M', 'L/XL', 'Única']              // gorras
+const SIZES_PANTS = ['28', '30', '32', '34', '36', '38']  // pantalones
 const ACCENT_FROM = 'ÁÉÍÓÚÜÑáéíóúüñ'
 const ACCENT_TO   = 'AEIOUUNaeiouun'
 
@@ -80,6 +82,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     Array.isArray(initial?.colors) ? (initial.colors as string[]) : [],
   )
   const [colorDraft, setColorDraft] = useState('')
+  const [sizeDraft, setSizeDraft] = useState('')
   const [material, setMaterial] = useState(String(initial?.material ?? ''))
   const [printingMethod, setPrintingMethod] = useState(String(initial?.printing_method ?? ''))
 
@@ -302,15 +305,77 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
       {/* Tallas */}
       <Section title="Tallas disponibles">
-        <div className="flex flex-wrap gap-2">
-          {SIZES_DEFAULT.map((s) => (
-            <button key={s} type="button" onClick={() => toggleSize(s)}
-              className={`w-12 h-12 text-sm font-medium rounded border ${sizes.includes(s)
-                ? 'bg-gray-900 text-white border-gray-900'
-                : 'border-gray-300 text-gray-700 hover:border-gray-500'}`}>
-              {s}
-            </button>
-          ))}
+        {/* Tallas seleccionadas */}
+        {sizes.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {sizes.map((s) => (
+              <span key={s} className="px-3 py-1 text-xs bg-gray-900 text-white rounded-full flex items-center gap-1">
+                {s}
+                <button type="button" onClick={() => setSizes(sizes.filter((x) => x !== s))}
+                  className="ml-1 text-gray-400 hover:text-white">×</button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Accesos rápidos por tipo de prenda */}
+        <div className="space-y-2 mb-3">
+          <p className="text-xs text-gray-400">Accesos rápidos:</p>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-xs text-gray-400 self-center mr-1">Camisetas/Buzos:</span>
+            {SIZES_SHIRT.map((s) => (
+              <button key={s} type="button" onClick={() => toggleSize(s)}
+                className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-xs text-gray-400 self-center mr-1">Gorras:</span>
+            {SIZES_CAP.map((s) => (
+              <button key={s} type="button" onClick={() => toggleSize(s)}
+                className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-xs text-gray-400 self-center mr-1">Pantalones:</span>
+            {SIZES_PANTS.map((s) => (
+              <button key={s} type="button" onClick={() => toggleSize(s)}
+                className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Talla personalizada */}
+        <div className="flex gap-2">
+          <input value={sizeDraft}
+            onChange={(e) => setSizeDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                const t = sizeDraft.trim()
+                if (t && !sizes.includes(t)) { setSizes([...sizes, t]); setSizeDraft('') }
+              }
+            }}
+            className={INPUT} placeholder="Otra talla (ej: 28x30, 57, One Size…)" />
+          <button type="button"
+            onClick={() => {
+              const t = sizeDraft.trim()
+              if (t && !sizes.includes(t)) { setSizes([...sizes, t]); setSizeDraft('') }
+            }}
+            className="px-3 py-2 text-xs border border-gray-300 rounded">
+            Agregar
+          </button>
         </div>
       </Section>
 
