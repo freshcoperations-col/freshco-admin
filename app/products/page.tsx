@@ -171,6 +171,9 @@ export default function ProductsPage() {
                   <td className="px-4 py-3">
                     <div className="font-medium">{p.name}</div>
                     <div className="text-xs text-gray-500">{p.garment_type_label ?? ''}</div>
+                    {((p as unknown as { collection_labels?: string[] }).collection_labels ?? []).map((l: string) => (
+                      <span key={l} className="inline-block text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded mt-0.5 mr-1">{l}</span>
+                    ))}
                     {p.featured && <div className="text-xs text-amber-600 mt-0.5">⭐ Destacado</div>}
                   </td>
                   <td className="px-4 py-3">
