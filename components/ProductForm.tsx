@@ -32,6 +32,14 @@ interface ProductFormProps {
   onDeleted?: () => void
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  back: 'Trasera (con estampado)',
+  front: 'Delantera',
+  lifestyle: 'Modelo / Lifestyle',
+  detail: 'Detalle / Close-up',
+  flat: 'Flat / Packshot',
+}
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const STORAGE_BASE = `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/public/productos/`
 
@@ -68,6 +76,13 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [printingMethod, setPrintingMethod] = useState(String(initial?.printing_method ?? ''))
 
   const [freeShipping, setFreeShipping] = useState(Boolean(initial?.free_shipping))
+  const [extraImages, setExtraImages] = useState<Array<{ url: string; type: string; color: string | null; label: string | null }>>(
+    Array.isArray(initial?.images) ? (initial.images as Array<{ url: string; type: string; color: string | null; label: string | null }>) : [],
+  )
+  const [extraImageType, setExtraImageType] = useState<'back' | 'front' | 'lifestyle' | 'detail' | 'flat'>('lifestyle')
+  const [extraImageColor, setExtraImageColor] = useState('')
+  const [uploadingExtra, setUploadingExtra] = useState(false)
+  const extraFileRef = useRef<HTMLInputElement>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -377,6 +392,94 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
             accept="image/*"
             className="hidden"
             onChange={handleFileChange}
+          />
+        </Section>
+      )}
+
+          {/* Fotos adicionales (modelos, detalles, etc.) */}
+      {!isNew && productId && (
+        <Section title="Fotos adicionales (modelos, detalles, otras vistas)">
+          <p className="text-xs text-gray-500 mb-3">
+            Úsalas para fotos de modelos usando la prenda, close-ups del estampado, vistas adicionales.
+            Se muestran en la galería del producto en la web. Para pantalones/gorras, sube aquí la foto principal con tipo "Trasera" o "Delantera".
+          </p>
+
+          {/* Imágenes existentes */}
+          {extraImages.length > 0 && (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {extraImages.map((img, i) => (
+                <div key={i} className="relative border border-gray-200 rounded overflow-hidden">
+                  <img src={img.url} alt={img.type} className="w-full h-28 object-cover bg-gray-50" />
+                  <div className="px-2 py-1 bg-gray-50 text-[10px] text-gray-500">
+                    {TYPE_LABELS[img.type] ?? img.type}{img.color ? ` · ${img.color}` : ''}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm('¿Eliminar esta foto?')) return
+                      const res = await botFetch(`/api/admin/web/products/${productId}/images`, {
+                        method: 'DELETE',
+                        body: JSON.stringify({ url: img.url }),
+                      })
+                      if (res.ok) {
+                        setExtraImages((prev) => prev.filter((_, j) => j !== i))
+                        showToast('Foto eliminada')
+                      }
+                    }}
+                    className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-700"
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload nueva foto */}
+          <div className="flex gap-2 flex-wrap items-end">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Tipo</label>
+              <select value={extraImageType} onChange={(e) => setExtraImageType(e.target.value as typeof extraImageType)}
+                className={INPUT}>
+                {Object.entries(TYPE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Color (opcional)</label>
+              <input value={extraImageColor} onChange={(e) => setExtraImageColor(e.target.value)}
+                placeholder="Vainilla" className={`${INPUT} w-28`} />
+            </div>
+            <button
+              type="button"
+              disabled={uploadingExtra}
+              onClick={() => extraFileRef.current?.click()}
+              className="px-3 py-2 text-xs border border-gray-300 rounded hover:border-gray-500 disabled:opacity-50"
+            >
+              {uploadingExtra ? 'Subiendo…' : '+ Subir foto'}
+            </button>
+          </div>
+          <input ref={extraFileRef} type="file" accept="image/*" className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              setUploadingExtra(true)
+              const fd = new FormData()
+              fd.append('file', file)
+              fd.append('type', extraImageType)
+              if (extraImageColor.trim()) fd.append('color', extraImageColor.trim())
+              const res = await botFetch(`/api/admin/web/products/${productId}/images`, { method: 'POST', headers: {}, body: fd })
+              setUploadingExtra(false)
+              if (res.ok) {
+                const { image } = await res.json()
+                setExtraImages((prev) => [...prev, image])
+                showToast('Foto subida ✅')
+                setExtraImageColor('')
+              } else {
+                const b = await res.json().catch(() => ({}))
+                showToast(b.error || 'Error al subir')
+              }
+              if (extraFileRef.current) extraFileRef.current.value = ''
+            }}
           />
         </Section>
       )}

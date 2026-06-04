@@ -21,8 +21,10 @@ export async function botFetch(
   if (!BOT_API_URL) {
     throw new Error('NEXT_PUBLIC_BOT_API_URL no está configurada.')
   }
+  const isFormData = init.body instanceof FormData
   const headers = {
-    'Content-Type': 'application/json',
+    // No poner Content-Type cuando es FormData — el browser lo pone con el boundary
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(init.headers ?? {}),
     ...(await authHeaders()),
   }
