@@ -67,6 +67,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [material, setMaterial] = useState(String(initial?.material ?? ''))
   const [printingMethod, setPrintingMethod] = useState(String(initial?.printing_method ?? ''))
 
+  const [freeShipping, setFreeShipping] = useState(Boolean(initial?.free_shipping))
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,19 +133,25 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       printing_method: printingMethod.trim() || null,
       available,
       featured,
+      free_shipping: freeShipping,
     }
 
-    const res = isNew
-      ? await botFetch('/api/admin/web/products', { method: 'POST', body: JSON.stringify(body) })
-      : await botFetch(`/api/admin/web/products/${initial?.id}`, { method: 'PUT', body: JSON.stringify(body) })
+    try {
+      const res = isNew
+        ? await botFetch('/api/admin/web/products', { method: 'POST', body: JSON.stringify(body) })
+        : await botFetch(`/api/admin/web/products/${initial?.id}`, { method: 'PUT', body: JSON.stringify(body) })
 
-    setSaving(false)
-    const resBody = await res.json().catch(() => ({}))
-    if (!res.ok) { setError(resBody.error || 'No se pudo guardar.'); return }
+      const resBody = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(resBody.error || 'No se pudo guardar.'); return }
 
-    const savedId = resBody.product?.id ?? initial?.id ?? id
-    showToast(isNew ? 'Producto creado ✅' : 'Producto actualizado ✅')
-    setTimeout(() => onSaved(savedId as string), 800)
+      const savedId = resBody.product?.id ?? initial?.id ?? id
+      showToast(isNew ? 'Producto creado ✅' : 'Producto actualizado ✅')
+      setTimeout(() => onSaved(savedId as string), 800)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error de conexión. Intenta de nuevo.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleDelete() {
@@ -255,6 +262,11 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
               <Toggle label="En oferta" value={onSale} onChange={setOnSale} />
               <Toggle label="Disponible" value={available} onChange={setAvailable} />
               <Toggle label="Destacado" value={featured} onChange={setFeatured} />
+              <Toggle
+                label="Envío gratis siempre 🎁 (sin importar ciudad ni total)"
+                value={freeShipping}
+                onChange={setFreeShipping}
+              />
             </div>
           </Field>
         </div>
