@@ -14,7 +14,6 @@ interface Product {
   stock: number
   available: boolean
   featured: boolean | null
-  on_sale: boolean
   free_shipping: boolean | null
   colors: string[] | null
   sizes: string[] | null
