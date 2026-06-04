@@ -16,6 +16,7 @@ interface Kpis {
 
 const NAV = [
   { href: '/', label: 'Inicio', match: (p: string) => p === '/' },
+  { href: '/analytics', label: 'Analíticas', match: (p: string) => p.startsWith('/analytics') },
   { href: '/orders', label: 'Pedidos', match: (p: string) => p.startsWith('/orders') },
   { href: '/conversations', label: 'Conversaciones', match: (p: string) => p.startsWith('/conversations') },
   { href: '/products', label: 'Productos', match: (p: string) => p.startsWith('/products') },

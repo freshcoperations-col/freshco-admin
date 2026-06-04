@@ -136,6 +136,8 @@ function OrdersPageInner() {
             <tr>
               <th className="px-4 py-2">Pedido</th>
               <th className="px-4 py-2">Cliente</th>
+              <th className="px-4 py-2">Celular</th>
+              <th className="px-4 py-2">Dirección</th>
               <th className="px-4 py-2">Items</th>
               <th className="px-4 py-2">Total</th>
               <th className="px-4 py-2">Estado pago</th>
@@ -145,16 +147,20 @@ function OrdersPageInner() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Cargando…</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Cargando…</td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No hay pedidos.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">No hay pedidos.</td></tr>
             ) : (
               orders.map((o) => (
                 <tr key={o.id} onClick={() => setSelected(o.short_id)} className="border-t border-gray-100 cursor-pointer hover:bg-blue-50">
                   <td className="px-4 py-3 font-mono text-xs">#{o.short_id}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{o.customer_name ?? '—'}</div>
-                    <div className="text-xs text-gray-500 truncate max-w-[180px]">{o.customer_email ?? `+${o.customer_phone}`}</div>
+                    <div className="text-xs text-gray-500 truncate max-w-[160px]">{o.customer_email ?? '—'}</div>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-700">+{o.customer_phone}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 max-w-[180px]">
+                    <span className="truncate block" title={o.shipping_address ?? ''}>{o.shipping_address ?? '—'}</span>
                   </td>
                   <td className="px-4 py-3 text-xs">{(o.items ?? []).map((it) => `${it.quantity ?? 1}× ${it.product_name ?? it.product_id}`).join(', ') || '—'}</td>
                   <td className="px-4 py-3 font-medium">${Number(o.total).toLocaleString('es-CO')}</td>
@@ -187,7 +193,10 @@ function OrdersPageInner() {
                 <PaymentBadge status={o.payment_status} />
               </div>
               <div className="font-medium text-sm">{o.customer_name ?? '—'}</div>
-              <div className="text-xs text-gray-500 mb-2">+{o.customer_phone}</div>
+              <div className="text-xs text-gray-500 font-mono mb-0.5">+{o.customer_phone}</div>
+              {o.shipping_address && (
+                <div className="text-xs text-gray-400 mb-2 truncate">{o.shipping_address}</div>
+              )}
               <div className="text-xs text-gray-600 mb-2">
                 {(o.items ?? []).map((it) => `${it.quantity ?? 1}× ${it.product_name}`).join(', ') || '—'}
               </div>
