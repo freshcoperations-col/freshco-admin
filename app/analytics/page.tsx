@@ -8,9 +8,9 @@ interface Analytics {
     total_revenue: number
     total_orders: number
     approved_orders: number
-    avg_order_value: number
     unique_customers: number
     returning_customers: number
+    customers_with_email: number
   }
   by_payment_status: Record<string, number>
   by_order_status: Record<string, number>
@@ -18,6 +18,8 @@ interface Analytics {
   top_products: { id: string; name: string; units: number; revenue: number }[]
   daily_series: { date: string; revenue: number; orders: number }[]
 }
+
+type DateRange = 7 | 30 | 90
 
 function formatCOP(n: number) {
   return '$' + Math.round(n).toLocaleString('es-CO')
@@ -44,6 +46,7 @@ function Bar({ pct, color = 'bg-blue-500' }: { pct: number; color?: string }) {
 export default function AnalyticsPage() {
   const [data, setData] = useState<Analytics | null>(null)
   const [loading, setLoading] = useState(true)
+  const [range, setRange] = useState<DateRange>(30)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -76,9 +79,13 @@ export default function AnalyticsPage() {
   }
 
   const { kpis, by_payment_status, by_order_status, top_products, daily_series } = data
-  const last14 = daily_series.slice(-14)
-  const last30Revenue = daily_series.reduce((s, d) => s + d.revenue, 0)
-  const maxRev = Math.max(...last14.map((d) => d.revenue), 1)
+
+  // Filtrar serie según el rango seleccionado
+  const filteredSeries = daily_series.slice(-range)
+  const maxRev = Math.max(...filteredSeries.map((d) => d.revenue), 1)
+  const rangeRevenue = filteredSeries.reduce((s, d) => s + d.revenue, 0)
+  const rangeOrders = filteredSeries.reduce((s, d) => s + d.orders, 0)
+
   const maxProductRevenue = Math.max(...top_products.map((p) => p.revenue), 1)
   const totalPayments = Object.values(by_payment_status).reduce((a, b) => a + b, 0) || 1
   const totalStatuses = Object.values(by_order_status).reduce((a, b) => a + b, 0) || 1
@@ -105,6 +112,8 @@ export default function AnalyticsPage() {
     ? Math.round((kpis.approved_orders / kpis.total_orders) * 100)
     : 0
 
+  const rangeLabel = range === 7 ? 'últimos 7 días' : range === 30 ? 'últimos 30 días' : 'últimos 90 días'
+
   return (
     <div className="p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
@@ -120,7 +129,7 @@ export default function AnalyticsPage() {
         </button>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — 5 cards, sin ticket promedio */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard
           label="Ingresos totales"
@@ -134,20 +143,15 @@ export default function AnalyticsPage() {
           sub={`${kpis.total_orders} pedidos iniciados en total`}
         />
         <StatCard
-          label="Valor promedio por pedido"
-          value={formatCOP(Math.round(kpis.avg_order_value))}
-          sub="Cuánto paga cada cliente en promedio"
-        />
-        <StatCard
-          label="Clientes distintos"
-          value={String(kpis.unique_customers)}
-          sub={`${kpis.returning_customers} han comprado más de una vez`}
-        />
-        <StatCard
           label="Tasa de pago"
           value={`${conversionRate}%`}
           sub={`${kpis.approved_orders} de ${kpis.total_orders} pedidos iniciados terminaron en pago`}
           accent={conversionRate >= 50 ? 'text-green-700' : 'text-amber-600'}
+        />
+        <StatCard
+          label="Número de clientes"
+          value={String(kpis.unique_customers)}
+          sub={`Identificados por correo · ${kpis.returning_customers} han comprado más de una vez`}
         />
         <StatCard
           label="Pendientes de pago"
@@ -157,34 +161,66 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {/* Gráfica de ventas — 14 días */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">Ingresos — últimos 14 días</h3>
-          <div className="flex items-end gap-1.5 h-28">
-            {last14.map((d) => {
-              const h = maxRev > 0 ? (d.revenue / maxRev) * 100 : 0
-              const label = d.date.slice(5).replace('-', '/')
-              return (
-                <div
-                  key={d.date}
-                  className="flex-1 flex flex-col items-center gap-0.5"
-                  title={`${label}: ${formatCOP(d.revenue)} (${d.orders} pedidos)`}
-                >
-                  <div
-                    className={`w-full rounded-t-sm ${d.revenue > 0 ? 'bg-blue-500' : 'bg-gray-100'}`}
-                    style={{ height: `${Math.max(h, d.revenue > 0 ? 6 : 0)}%` }}
-                  />
-                  <span className="text-gray-400 font-mono" style={{ fontSize: '9px' }}>{label}</span>
-                </div>
-              )
-            })}
+      {/* Gráfica de ventas con filtro de fecha */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">Ventas — {rangeLabel}</h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {formatCOP(rangeRevenue)} · {rangeOrders} pedidos pagados
+            </p>
           </div>
-          {last14.every((d) => d.revenue === 0) && (
-            <p className="text-xs text-gray-400 text-center mt-2">Sin ventas aprobadas en este período.</p>
-          )}
+          <div className="flex gap-1">
+            {([7, 30, 90] as DateRange[]).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`px-3 py-1 text-xs rounded border transition-colors ${
+                  range === r
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {r === 7 ? '7 días' : r === 30 ? '30 días' : '90 días'}
+              </button>
+            ))}
+          </div>
         </div>
 
+        <div className="flex items-end gap-0.5 h-32">
+          {filteredSeries.map((d, i) => {
+            const h = maxRev > 0 ? (d.revenue / maxRev) * 100 : 0
+            // Mostrar etiqueta cada N días según el rango
+            const step = range === 7 ? 1 : range === 30 ? 5 : 10
+            const showLabel = i % step === 0
+            const label = d.date.slice(5).replace('-', '/')
+            return (
+              <div
+                key={d.date}
+                className="flex-1 flex flex-col items-center gap-0.5 min-w-0"
+                title={`${d.date}: ${formatCOP(d.revenue)} (${d.orders} pedidos)`}
+              >
+                <div
+                  className={`w-full rounded-t-sm ${d.revenue > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-100'}`}
+                  style={{ height: `${Math.max(h, d.revenue > 0 ? 4 : 0)}%` }}
+                />
+                <span
+                  className="text-gray-400 font-mono overflow-hidden"
+                  style={{ fontSize: '8px', opacity: showLabel ? 1 : 0 }}
+                >
+                  {label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        {filteredSeries.every((d) => d.revenue === 0) && (
+          <p className="text-xs text-gray-400 text-center mt-2">Sin ventas aprobadas en este período.</p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Top productos */}
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <h3 className="text-sm font-semibold text-gray-800 mb-4">Top productos por ingreso</h3>
@@ -206,9 +242,7 @@ export default function AnalyticsPage() {
             </div>
           )}
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Estado de pagos */}
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <h3 className="text-sm font-semibold text-gray-800 mb-4">Estado de pagos</h3>
@@ -230,27 +264,27 @@ export default function AnalyticsPage() {
               })}
           </div>
         </div>
+      </div>
 
-        {/* Estado de envíos */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">Estado de pedidos (envío)</h3>
-          <div className="space-y-3">
-            {Object.entries(by_order_status)
-              .sort((a, b) => b[1] - a[1])
-              .map(([status, count]) => {
-                const info = orderStatusLabels[status] ?? { label: status, color: 'bg-gray-400' }
-                return (
-                  <div key={status} className="flex items-center gap-3">
-                    <span className="text-sm text-gray-600 w-20">{info.label}</span>
-                    <Bar pct={(count / totalStatuses) * 100} color={info.color} />
-                    <span className="text-sm font-mono text-gray-700 w-6 text-right">{count}</span>
-                    <span className="text-xs text-gray-400 w-10 text-right">
-                      {Math.round((count / totalStatuses) * 100)}%
-                    </span>
-                  </div>
-                )
-              })}
-          </div>
+      {/* Estado de envíos */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <h3 className="text-sm font-semibold text-gray-800 mb-4">Estado de pedidos (envío)</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
+          {Object.entries(by_order_status)
+            .sort((a, b) => b[1] - a[1])
+            .map(([status, count]) => {
+              const info = orderStatusLabels[status] ?? { label: status, color: 'bg-gray-400' }
+              return (
+                <div key={status} className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-24">{info.label}</span>
+                  <Bar pct={(count / totalStatuses) * 100} color={info.color} />
+                  <span className="text-sm font-mono text-gray-700 w-6 text-right">{count}</span>
+                  <span className="text-xs text-gray-400 w-10 text-right">
+                    {Math.round((count / totalStatuses) * 100)}%
+                  </span>
+                </div>
+              )
+            })}
         </div>
       </div>
     </div>
