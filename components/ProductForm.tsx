@@ -446,6 +446,28 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                     >
                       Ver
                     </a>
+                    <button
+                      type="button"
+                      title="Eliminar modelo 3D"
+                      onClick={async () => {
+                        if (!confirm(`¿Eliminar el modelo 3D de ${color}?`)) return
+                        const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
+                        const res = await botFetch(
+                          `/api/admin/web/products/${productId}/upload-model?color=${encodeURIComponent(color)}&ext=glb`,
+                          { method: 'DELETE' },
+                        )
+                        if (res.ok) {
+                          setModel3dKeys((prev) => ({ ...prev, [color]: 0 }))
+                          showToast(`Modelo 3D de ${color} eliminado`)
+                        } else {
+                          const b = await res.json().catch(() => ({}))
+                          showToast(b.error || 'Error al eliminar')
+                        }
+                      }}
+                      className="px-2 py-1.5 text-xs border border-red-200 rounded text-red-500 hover:bg-red-50"
+                    >
+                      🗑
+                    </button>
                   </div>
                   {key > 0 && (
                     <p className="text-xs text-green-600 mt-1">✓ Subido correctamente</p>
