@@ -60,7 +60,7 @@ export function OrderDrawer({
 }) {
   const [data, setData] = useState<{ order: Order; recent_messages: Message[] } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [action, setAction] = useState<'idle' | 'ship' | 'cancel' | 'resend'>('idle')
+  const [action, setAction] = useState<'idle' | 'ship' | 'update_shipping' | 'deliver' | 'cancel' | 'resend'>('idle')
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -168,6 +168,22 @@ export function OrderDrawer({
                       Marcar enviado
                     </button>
                   )}
+                  {data.order.tracking_number && data.order.status !== 'entregado' && data.order.status !== 'cancelado' && (
+                    <>
+                      <button
+                        onClick={() => setAction('deliver')}
+                        className="px-4 py-2 text-xs uppercase tracking-wide bg-green-600 text-white rounded"
+                      >
+                        Marcar entregado
+                      </button>
+                      <button
+                        onClick={() => setAction('update_shipping')}
+                        className="px-4 py-2 text-xs uppercase tracking-wide border border-blue-300 text-blue-700 rounded"
+                      >
+                        Actualizar guía
+                      </button>
+                    </>
+                  )}
                   {data.order.payment_status === 'pending' && data.order.payment_link_url && (
                     <button
                       onClick={() => setAction('resend')}
@@ -185,6 +201,43 @@ export function OrderDrawer({
                     </button>
                   )}
                 </div>
+              )}
+
+              {action === 'update_shipping' && (
+                <ShipForm
+                  order={data.order}
+                  onCancel={() => setAction('idle')}
+                  onDone={() => {
+                    setToast('Guía actualizada y cliente notificado.')
+                    onChanged()
+                    setAction('idle')
+                    setTimeout(() => setToast(null), 3000)
+                    botFetch(`/api/admin/web/orders/${shortId}`, { method: 'GET' })
+                      .then((r) => r.json())
+                      .then(setData)
+                  }}
+                  working={working}
+                  setWorking={setWorking}
+                  isUpdate
+                />
+              )}
+
+              {action === 'deliver' && (
+                <DeliverForm
+                  order={data.order}
+                  onCancel={() => setAction('idle')}
+                  onDone={() => {
+                    setToast('¡Pedido marcado como entregado! Cliente notificado 🎉')
+                    onChanged()
+                    setAction('idle')
+                    setTimeout(() => setToast(null), 3000)
+                    botFetch(`/api/admin/web/orders/${shortId}`, { method: 'GET' })
+                      .then((r) => r.json())
+                      .then(setData)
+                  }}
+                  working={working}
+                  setWorking={setWorking}
+                />
               )}
 
               {action === 'ship' && (
@@ -298,16 +351,18 @@ function ShipForm({
   onDone,
   working,
   setWorking,
+  isUpdate,
 }: {
   order: Order
   onCancel: () => void
   onDone: () => void
   working: boolean
   setWorking: (b: boolean) => void
+  isUpdate?: boolean
 }) {
-  const [carrier, setCarrier] = useState(CARRIERS[0])
+  const [carrier, setCarrier] = useState(order.shipping_carrier ?? CARRIERS[0])
   const [customCarrier, setCustomCarrier] = useState('')
-  const [tracking, setTracking] = useState('')
+  const [tracking, setTracking] = useState(order.tracking_number ?? '')
   const [err, setErr] = useState<string | null>(null)
 
   async function submit() {
@@ -378,7 +433,7 @@ function ShipForm({
           disabled={working}
           className="px-3 py-2 text-xs bg-blue-600 text-white rounded disabled:opacity-50"
         >
-          {working ? 'Enviando…' : 'Marcar y notificar'}
+          {working ? 'Enviando…' : isUpdate ? 'Actualizar y notificar' : 'Marcar y notificar'}
         </button>
       </div>
     </div>
@@ -434,6 +489,61 @@ function ResendForm({
           className="px-3 py-2 text-xs bg-amber-600 text-white rounded disabled:opacity-50"
         >
           {working ? 'Enviando…' : 'Reenviar ahora'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DeliverForm({
+  order,
+  onCancel,
+  onDone,
+  working,
+  setWorking,
+}: {
+  order: Order
+  onCancel: () => void
+  onDone: () => void
+  working: boolean
+  setWorking: (b: boolean) => void
+}) {
+  const [err, setErr] = useState<string | null>(null)
+
+  async function submit() {
+    const customerLabel = order.customer_name
+      ? `${order.customer_name} (+${order.customer_phone})`
+      : `+${order.customer_phone}`
+    if (!confirm(`Vas a marcar el pedido #${order.short_id} de ${customerLabel} como ENTREGADO y notificarle por WhatsApp.\n\n¿Confirmas?`))
+      return
+    setErr(null)
+    setWorking(true)
+    const res = await botFetch(`/api/admin/web/orders/${order.short_id}/deliver`, { method: 'POST' })
+    setWorking(false)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setErr(body.error || 'No se pudo marcar como entregado.')
+      return
+    }
+    onDone()
+  }
+
+  return (
+    <div className="border border-green-200 rounded p-4 bg-green-50">
+      <p className="text-sm mb-3">
+        El cliente recibirá un WhatsApp confirmando que su pedido fue entregado.
+      </p>
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="px-3 py-2 text-xs border border-gray-300 rounded">
+          Cancelar
+        </button>
+        <button
+          onClick={submit}
+          disabled={working}
+          className="px-3 py-2 text-xs bg-green-600 text-white rounded disabled:opacity-50"
+        >
+          {working ? 'Marcando…' : 'Confirmar entrega'}
         </button>
       </div>
     </div>
