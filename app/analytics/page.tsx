@@ -187,26 +187,28 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="flex items-end gap-0.5 h-32">
+        {/* h-36 = 144px; 96px para barras, resto para etiquetas */}
+        <div className="flex items-end gap-0.5" style={{ height: '144px' }}>
           {filteredSeries.map((d, i) => {
-            const h = maxRev > 0 ? (d.revenue / maxRev) * 100 : 0
-            // Mostrar etiqueta cada N días según el rango
+            const BAR_MAX_PX = 96
+            const barPx = maxRev > 0 ? Math.round((d.revenue / maxRev) * BAR_MAX_PX) : 0
             const step = range === 7 ? 1 : range === 30 ? 5 : 10
             const showLabel = i % step === 0
             const label = d.date.slice(5).replace('-', '/')
             return (
               <div
                 key={d.date}
-                className="flex-1 flex flex-col items-center gap-0.5 min-w-0"
+                className="flex-1 flex flex-col items-center justify-end min-w-0"
+                style={{ height: '144px' }}
                 title={`${d.date}: ${formatCOP(d.revenue)} (${d.orders} pedidos)`}
               >
                 <div
-                  className={`w-full rounded-t-sm ${d.revenue > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-100'}`}
-                  style={{ height: `${Math.max(h, d.revenue > 0 ? 4 : 0)}%` }}
+                  className={`w-full rounded-t-sm transition-colors ${d.revenue > 0 ? 'bg-blue-500' : 'bg-gray-100'}`}
+                  style={{ height: `${Math.max(barPx, d.revenue > 0 ? 3 : 0)}px` }}
                 />
                 <span
-                  className="text-gray-400 font-mono overflow-hidden"
-                  style={{ fontSize: '8px', opacity: showLabel ? 1 : 0 }}
+                  className="text-gray-400 font-mono mt-1 overflow-hidden"
+                  style={{ fontSize: '8px', opacity: showLabel ? 1 : 0, flexShrink: 0 }}
                 >
                   {label}
                 </span>
