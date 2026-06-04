@@ -461,22 +461,28 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
             className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0]
-              if (!file || !pendingModel) return
-              setUploadingModel((prev) => ({ ...prev, [pendingModel]: true }))
-              const fd = new FormData()
-              fd.append('file', file)
-              fd.append('color', pendingModel)
-              const res = await botFetch(`/api/admin/web/products/${productId}/upload-model`, { method: 'POST', headers: {}, body: fd })
-              setUploadingModel((prev) => ({ ...prev, [pendingModel!]: false }))
-              if (res.ok) {
-                setModel3dKeys((prev) => ({ ...prev, [pendingModel!]: Date.now() }))
-                showToast(`Modelo 3D de ${pendingModel} subido ✅`)
-              } else {
-                const b = await res.json().catch(() => ({}))
-                showToast(b.error || 'Error al subir modelo')
+              const color = pendingModel  // capturar antes de cualquier await
+              if (!file || !color) return
+              setUploadingModel((prev) => ({ ...prev, [color]: true }))
+              try {
+                const fd = new FormData()
+                fd.append('file', file)
+                fd.append('color', color)
+                const res = await botFetch(`/api/admin/web/products/${productId}/upload-model`, { method: 'POST', headers: {}, body: fd })
+                if (res.ok) {
+                  setModel3dKeys((prev) => ({ ...prev, [color]: Date.now() }))
+                  showToast(`Modelo 3D de ${color} subido ✅`)
+                } else {
+                  const b = await res.json().catch(() => ({}))
+                  showToast(b.error || 'Error al subir modelo')
+                }
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : 'Error de conexión')
+              } finally {
+                setUploadingModel((prev) => ({ ...prev, [color]: false }))
+                if (model3dFileRef.current) model3dFileRef.current.value = ''
+                setPendingModel(null)
               }
-              if (model3dFileRef.current) model3dFileRef.current.value = ''
-              setPendingModel(null)
             }}
           />
         </Section>
