@@ -194,7 +194,7 @@ export default function ConversationsPage() {
         {selected && (
           <ChatView phone={selected} conversations={conversations} messages={messages}
             loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
-            draft={draft} setDraft={setDraft} sending={sending}
+            draft={draft} setDraft={setDraft} sending={sending} advisorName={advisorName}
             onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend}
             onDeleteConv={handleDeleteConv} />
         )}
@@ -231,7 +231,7 @@ export default function ConversationsPage() {
           {selected ? (
             <ChatView phone={selected} conversations={conversations} messages={messages}
               loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
-              draft={draft} setDraft={setDraft} sending={sending}
+              draft={draft} setDraft={setDraft} sending={sending} advisorName={advisorName}
               onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend}
               onDeleteConv={handleDeleteConv} />
           ) : (
@@ -246,7 +246,7 @@ export default function ConversationsPage() {
 }
 
 function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef, aiPaused,
-  draft, setDraft, sending, onBack, onToggleAI, onSend, onDeleteConv }: {
+  draft, setDraft, sending, advisorName, onBack, onToggleAI, onSend, onDeleteConv }: {
   phone: string
   conversations: { customer_phone: string; total_messages: number }[]
   messages: { id: string; direction: string; content: string; intent: string | null; created_at: string }[]
@@ -256,6 +256,7 @@ function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef,
   draft: string
   setDraft: (v: string) => void
   sending: boolean
+  advisorName: string
   onBack: () => void
   onToggleAI: () => void
   onSend: () => void
@@ -303,7 +304,17 @@ function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef,
         <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-gray-200 bg-white p-3 flex-shrink-0">
-        {aiPaused && <div className="text-xs text-orange-600 mb-2">AI pausado — tu mensaje llegará al cliente.</div>}
+        {aiPaused && (
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-orange-600">Al pausado — tu mensaje llegará al cliente.</span>
+            <button
+              onClick={() => setDraft(`¡Hola! 👋 Soy ${advisorName || 'tu asesor'} de Freshco. Estoy aquí para atenderte personalmente. ¿En qué te puedo ayudar? 💛`)}
+              className="text-xs px-2.5 py-1 bg-orange-50 border border-orange-300 text-orange-700 rounded hover:bg-orange-100 font-medium whitespace-nowrap"
+            >
+              👋 Usar saludo
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
