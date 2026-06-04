@@ -8,7 +8,7 @@ interface GarmentType { id: string; label: string }
 interface Collection { id: string; label: string }
 
 const SIZES_SHIRT = ['XS', 'S', 'M', 'L', 'XL', 'XXL']  // camisetas y hoodies
-const SIZES_CAP   = ['S/M', 'L/XL', 'Única']              // gorras
+const SIZES_CAP   = ['L/XL']                               // gorras
 const SIZES_PANTS = ['28', '30', '32', '34', '36', '38']  // pantalones
 const ACCENT_FROM = 'ÁÉÍÓÚÜÑáéíóúüñ'
 const ACCENT_TO   = 'AEIOUUNaeiouun'
