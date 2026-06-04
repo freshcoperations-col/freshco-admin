@@ -113,7 +113,8 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* Tabla — solo desktop */}
+      <div className="hidden md:block bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
             <tr>
@@ -247,6 +248,51 @@ export default function ProductsPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Tarjetas — solo móvil */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">Cargando…</div>
+        ) : products.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">Sin productos.</div>
+        ) : products.map((p) => (
+          <div key={p.id} onClick={() => router.push(`/products/${p.id}`)}
+            className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer active:bg-gray-50">
+            <div className="flex gap-3 items-start">
+              <img src={backImageUrl(p.id, p.colors?.[0])} alt={p.name}
+                className="w-16 h-16 object-contain bg-gray-100 rounded flex-shrink-0"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm">{p.name}</div>
+                <div className="text-xs text-gray-500 mb-1">{p.garment_type_label}</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {p.on_sale && p.sale_price ? (
+                    <>
+                      <span className="text-sm font-bold text-red-600">${Number(p.sale_price).toLocaleString('es-CO')}</span>
+                      <span className="text-xs text-gray-400 line-through">${Number(p.price).toLocaleString('es-CO')}</span>
+                    </>
+                  ) : (
+                    <span className="text-sm font-bold">${Number(p.price).toLocaleString('es-CO')}</span>
+                  )}
+                  <span className={`text-xs ${p.stock === 0 ? 'text-red-600' : p.stock <= 3 ? 'text-amber-600' : 'text-gray-500'}`}>
+                    Stock: {p.stock}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {(p.sizes ?? []).map((s) => (
+                    <span key={s} className="px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-600 rounded font-mono">{s}</span>
+                  ))}
+                </div>
+                <div className="flex gap-1 mt-1 flex-wrap">
+                  {p.on_sale && <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-700 rounded-full font-medium">SALE</span>}
+                  {p.free_shipping && <span className="px-2 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">Envío gratis</span>}
+                  {!p.available && <span className="px-2 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full font-medium">Pausado</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {editing && (

@@ -133,148 +133,111 @@ export default function ConversationsPage() {
     return !q || c.customer_phone.includes(q) || c.last_message.toLowerCase().includes(q)
   })
 
+  // En móvil: mostrar lista O chat, no ambos a la vez
+  const showChat = selected !== null
+  const ConvList = (
+    <div className="flex flex-col bg-white h-full">
+      <div className="p-3 border-b border-gray-200">
+        <h2 className="text-sm font-semibold mb-2">Conversaciones</h2>
+        <input placeholder="Buscar por teléfono…" value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded bg-white" />
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {loadingConvs ? (
+          <div className="p-4 text-xs text-gray-400 text-center">Cargando…</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-4 text-xs text-gray-400 text-center">Sin conversaciones.</div>
+        ) : filtered.map((c) => (
+          <button key={c.customer_phone} onClick={() => setSelected(c.customer_phone)}
+            className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 ${selected === c.customer_phone ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-mono font-medium">+{c.customer_phone}</span>
+              <span className="text-[10px] text-gray-400">{new Date(c.last_message_at).toLocaleDateString('es-CO')}</span>
+            </div>
+            <div className="text-xs text-gray-600 truncate">{c.last_message}</div>
+            <div className="flex items-center gap-1 mt-1">
+              {INTENT_LABEL[c.last_intent] && <span className="text-[10px] text-gray-400">{INTENT_LABEL[c.last_intent]}</span>}
+              {c.ai_paused && <span className="ml-auto text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Manual</span>}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  const ChatPanel = selected ? (
+    <div className="flex flex-col h-full">
+      <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200 bg-white flex-shrink-0">
+        <div className="flex items-center gap-3">
+          {/* Botón volver — solo en móvil */}
+          <button onClick={() => setSelected(null)} className="md:hidden text-gray-500 hover:text-gray-900 mr-1">
+            ←
+          </button>
+          <div>
+            <div className="text-sm font-mono font-medium">+{selected}</div>
+            <div className="text-xs text-gray-500">{conversations.find((c) => c.customer_phone === selected)?.total_messages ?? 0} mensajes</div>
+          </div>
+        </div>
+        <button onClick={handleToggleAI}
+          className={`px-3 py-1.5 text-xs rounded border font-medium transition-colors ${aiPaused ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-green-50 border-green-300 text-green-700'}`}>
+          {aiPaused ? '🟠 Pausado' : '🟢 AI activo'}
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50">
+        {loadingMsgs ? (
+          <div className="text-center text-xs text-gray-400 pt-8">Cargando mensajes…</div>
+        ) : messages.length === 0 ? (
+          <div className="text-center text-xs text-gray-400 pt-8">Sin mensajes.</div>
+        ) : messages.map((m) => (
+          <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${m.direction === 'outbound' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-gray-900 rounded-bl-sm shadow-sm'}`}>
+              <div className="whitespace-pre-wrap break-words">{m.content}</div>
+              <div className={`text-[10px] mt-1 ${m.direction === 'outbound' ? 'text-blue-200' : 'text-gray-400'}`}>
+                {new Date(m.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="border-t border-gray-200 bg-white p-3 flex-shrink-0">
+        {aiPaused && <div className="text-xs text-orange-600 mb-2">AI pausado — tu mensaje llegará al cliente.</div>}
+        <div className="flex gap-2">
+          <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+            rows={2} placeholder="Escribe un mensaje…"
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded resize-none focus:outline-none focus:border-gray-500" />
+          <button onClick={handleSend} disabled={sending || !draft.trim()}
+            className="px-4 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded disabled:opacity-50 self-end">
+            {sending ? '…' : 'Enviar'}
+          </button>
+      </div>
+    </div>
+  ) : null
+
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Lista de conversaciones */}
-      <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col bg-white">
-        <div className="p-3 border-b border-gray-200">
-          <h2 className="text-sm font-semibold mb-2">Conversaciones</h2>
-          <input
-            placeholder="Buscar por teléfono…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded bg-white"
-          />
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {loadingConvs ? (
-            <div className="p-4 text-xs text-gray-400 text-center">Cargando…</div>
-          ) : filtered.length === 0 ? (
-            <div className="p-4 text-xs text-gray-400 text-center">Sin conversaciones.</div>
-          ) : (
-            filtered.map((c) => (
-              <button
-                key={c.customer_phone}
-                onClick={() => setSelected(c.customer_phone)}
-                className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 ${
-                  selected === c.customer_phone ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono font-medium">+{c.customer_phone}</span>
-                  <span className="text-[10px] text-gray-400">
-                    {new Date(c.last_message_at).toLocaleDateString('es-CO')}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-600 truncate">{c.last_message}</div>
-                <div className="flex items-center gap-1 mt-1">
-                  {INTENT_LABEL[c.last_intent] && (
-                    <span className="text-[10px] text-gray-400">{INTENT_LABEL[c.last_intent]}</span>
-                  )}
-                  {c.ai_paused && (
-                    <span className="ml-auto text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
-                      Manual
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))
-          )}
-        </div>
+      {/* Móvil: lista O chat a pantalla completa */}
+      <div className={`md:hidden w-full h-full ${showChat ? 'hidden' : 'flex flex-col'}`}>
+        {ConvList}
+      </div>
+      <div className={`md:hidden w-full h-full ${showChat ? 'flex flex-col' : 'hidden'}`}>
+        {ChatPanel}
       </div>
 
-      {/* Panel de chat */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {!selected ? (
-          <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
-            Selecciona una conversación
-          </div>
-        ) : (
-          <>
-            {/* Header */}
-            <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200 bg-white">
-              <div>
-                <div className="text-sm font-mono font-medium">+{selected}</div>
-                <div className="text-xs text-gray-500">
-                  {conversations.find((c) => c.customer_phone === selected)?.total_messages ?? 0} mensajes
-                </div>
-              </div>
-              <button
-                onClick={handleToggleAI}
-                className={`px-3 py-1.5 text-xs rounded border font-medium transition-colors ${
-                  aiPaused
-                    ? 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
-                    : 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
-                }`}
-              >
-                {aiPaused ? '🟠 AI pausado — activar' : '🟢 AI activo — pausar'}
-              </button>
+      {/* Desktop: dos paneles lado a lado */}
+      <div className="hidden md:flex w-full h-full overflow-hidden">
+        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col">
+          {ConvList}
+        </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {ChatPanel ?? (
+            <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
+              Selecciona una conversación
             </div>
-
-            {/* Mensajes */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50">
-              {loadingMsgs ? (
-                <div className="text-center text-xs text-gray-400 pt-8">Cargando mensajes…</div>
-              ) : messages.length === 0 ? (
-                <div className="text-center text-xs text-gray-400 pt-8">Sin mensajes.</div>
-              ) : (
-                messages.map((m) => (
-                  <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
-                        m.direction === 'outbound'
-                          ? 'bg-blue-600 text-white rounded-br-sm'
-                          : 'bg-white text-gray-900 rounded-bl-sm shadow-sm'
-                      }`}
-                    >
-                      <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                      <div className={`text-[10px] mt-1 ${m.direction === 'outbound' ? 'text-blue-200' : 'text-gray-400'}`}>
-                        {new Date(m.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                        {m.intent && m.intent !== 'otro' && ` · ${INTENT_LABEL[m.intent] ?? m.intent}`}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input de respuesta */}
-            <div className="border-t border-gray-200 bg-white p-3">
-              {aiPaused ? (
-                <div className="text-xs text-orange-600 mb-2">
-                  AI pausado. Los mensajes que envíes aquí llegan al cliente pero la IA no responderá.
-                </div>
-              ) : (
-                <div className="text-xs text-gray-400 mb-2">
-                  La IA está activa. Puedes enviar un mensaje manual igual.
-                </div>
-              )}
-              <div className="flex gap-2">
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSend()
-                    }
-                  }}
-                  rows={2}
-                  placeholder="Escribe un mensaje… (Enter para enviar, Shift+Enter para nueva línea)"
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded resize-none focus:outline-none focus:border-gray-500"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={sending || !draft.trim()}
-                  className="px-4 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded disabled:opacity-50 self-end"
-                >
-                  {sending ? '…' : 'Enviar'}
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
