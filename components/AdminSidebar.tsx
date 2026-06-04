@@ -21,7 +21,7 @@ const NAV = [
   { href: '/products', label: 'Productos', match: (p: string) => p.startsWith('/products') },
 ]
 
-export function AdminSidebar() {
+export function AdminSidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname() ?? ''
   const router = useRouter()
   const [email, setEmail] = useState<string | null>(null)
@@ -100,7 +100,8 @@ export function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center justify-between px-4 py-2 hover:bg-gray-50 ${
+              onClick={onClose}
+              className={`flex items-center justify-between px-4 py-3 hover:bg-gray-50 ${
                 active ? 'bg-gray-100 font-semibold' : 'text-gray-700'
               }`}
             >

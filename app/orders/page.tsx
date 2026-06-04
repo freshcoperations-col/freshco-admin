@@ -129,7 +129,8 @@ function OrdersPageInner() {
         </button>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* Tabla — visible solo en desktop */}
+      <div className="hidden md:block bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
             <tr>
@@ -149,43 +150,59 @@ function OrdersPageInner() {
               <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No hay pedidos.</td></tr>
             ) : (
               orders.map((o) => (
-                <tr
-                  key={o.id}
-                  onClick={() => setSelected(o.short_id)}
-                  className="border-t border-gray-100 cursor-pointer hover:bg-blue-50"
-                >
+                <tr key={o.id} onClick={() => setSelected(o.short_id)} className="border-t border-gray-100 cursor-pointer hover:bg-blue-50">
                   <td className="px-4 py-3 font-mono text-xs">#{o.short_id}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{o.customer_name ?? '—'}</div>
-                    <div className="text-xs text-gray-500 truncate max-w-[180px]">
-                      {o.customer_email ?? `+${o.customer_phone}`}
-                    </div>
+                    <div className="text-xs text-gray-500 truncate max-w-[180px]">{o.customer_email ?? `+${o.customer_phone}`}</div>
                   </td>
-                  <td className="px-4 py-3 text-xs">
-                    {(o.items ?? [])
-                      .map((it) => `${it.quantity ?? 1}× ${it.product_name ?? it.product_id}`)
-                      .join(', ') || '—'}
-                  </td>
+                  <td className="px-4 py-3 text-xs">{(o.items ?? []).map((it) => `${it.quantity ?? 1}× ${it.product_name ?? it.product_id}`).join(', ') || '—'}</td>
                   <td className="px-4 py-3 font-medium">${Number(o.total).toLocaleString('es-CO')}</td>
                   <td className="px-4 py-3"><PaymentBadge status={o.payment_status} /></td>
                   <td className="px-4 py-3">
                     {o.tracking_number ? (
-                      <div className="text-xs">
-                        <div className="font-medium">{o.shipping_carrier}</div>
-                        <div className="font-mono text-gray-500">{o.tracking_number}</div>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">{o.status ?? '—'}</span>
-                    )}
+                      <div className="text-xs"><div className="font-medium">{o.shipping_carrier}</div><div className="font-mono text-gray-500">{o.tracking_number}</div></div>
+                    ) : <span className="text-xs text-gray-400">{o.status ?? '—'}</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500">
-                    {new Date(o.created_at).toLocaleDateString('es-CO')}
-                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-500">{new Date(o.created_at).toLocaleDateString('es-CO')}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Tarjetas — visible solo en móvil */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">Cargando…</div>
+        ) : orders.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">No hay pedidos.</div>
+        ) : (
+          orders.map((o) => (
+            <div key={o.id} onClick={() => setSelected(o.short_id)}
+              className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer active:bg-blue-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-mono text-sm font-bold">#{o.short_id}</span>
+                <PaymentBadge status={o.payment_status} />
+              </div>
+              <div className="font-medium text-sm">{o.customer_name ?? '—'}</div>
+              <div className="text-xs text-gray-500 mb-2">+{o.customer_phone}</div>
+              <div className="text-xs text-gray-600 mb-2">
+                {(o.items ?? []).map((it) => `${it.quantity ?? 1}× ${it.product_name}`).join(', ') || '—'}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">${Number(o.total).toLocaleString('es-CO')}</span>
+                <span className="text-xs text-gray-400">{new Date(o.created_at).toLocaleDateString('es-CO')}</span>
+              </div>
+              {o.tracking_number && (
+                <div className="mt-2 text-xs text-blue-700 bg-blue-50 rounded px-2 py-1">
+                  📦 {o.shipping_carrier} · {o.tracking_number}
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
 
       <OrderDrawer
