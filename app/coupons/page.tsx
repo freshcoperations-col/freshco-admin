@@ -156,7 +156,8 @@ export default function CouponsPage() {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* Tabla — solo desktop */}
+      <div className="hidden md:block bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
             <tr>
@@ -209,6 +210,43 @@ export default function CouponsPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Tarjetas — solo móvil */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">Cargando…</div>
+        ) : coupons.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">Sin cupones. Toca "+ Nuevo cupón".</div>
+        ) : coupons.map((c) => (
+          <div key={c.id} className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-mono font-bold text-base">{c.code}</span>
+              <span className="text-lg font-bold text-green-700">{Math.round(c.discount * 100)}%</span>
+            </div>
+            {c.description && <p className="text-xs text-gray-500 mb-2">{c.description}</p>}
+            <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-3">
+              <span>Usos: <strong className={c.usage_limit && c.used_count >= c.usage_limit ? 'text-red-600' : 'text-gray-800'}>{c.used_count}{c.usage_limit ? `/${c.usage_limit}` : ''}</strong></span>
+              <span>·</span>
+              <span>Expira: {c.expires_at ? new Date(c.expires_at).toLocaleDateString('es-CO') : 'Nunca'}</span>
+              <span>·</span>
+              {c.active
+                ? <span className="text-green-700 font-medium">Activo</span>
+                : <span className="text-gray-400">Inactivo</span>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => toggleActive(c)} className="flex-1 py-2 text-xs border border-gray-300 rounded">
+                {c.active ? 'Desactivar' : 'Activar'}
+              </button>
+              <button onClick={() => resetCount(c)} className="px-3 py-2 text-xs border border-gray-300 rounded">
+                Reiniciar
+              </button>
+              <button onClick={() => deleteCoupon(c)} className="px-3 py-2 text-xs border border-red-200 text-red-700 rounded">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {toast && (
