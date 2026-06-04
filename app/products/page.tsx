@@ -120,9 +120,10 @@ export default function ProductsPage() {
               <th className="px-4 py-2 w-16"></th>
               <th className="px-4 py-2">Producto</th>
               <th className="px-4 py-2">Precio</th>
+              <th className="px-4 py-2">Tallas</th>
+              <th className="px-4 py-2">Colores</th>
               <th className="px-4 py-2">Stock</th>
               <th className="px-4 py-2">Badges</th>
-              <th className="px-4 py-2">Tags visuales</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2 text-right">Acciones</th>
             </tr>
@@ -130,11 +131,11 @@ export default function ProductsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">Cargando…</td>
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-400">Cargando…</td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">Sin productos.</td>
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-400">Sin productos.</td>
               </tr>
             ) : (
               products.map((p) => (
@@ -165,6 +166,24 @@ export default function ProductsPage() {
                     ) : (
                       <div className="font-medium">${Number(p.price).toLocaleString('es-CO')}</div>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-0.5">
+                      {(p.sizes ?? []).length > 0
+                        ? (p.sizes ?? []).map((s) => (
+                            <span key={s} className="px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-600 rounded font-mono">{s}</span>
+                          ))
+                        : <span className="text-xs text-gray-400">—</span>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-0.5">
+                      {(p.colors ?? []).length > 0
+                        ? (p.colors ?? []).map((c) => (
+                            <span key={c} className="text-xs text-gray-700">{c}</span>
+                          ))
+                        : <span className="text-xs text-gray-400">—</span>}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs ${p.stock === 0 ? 'text-red-600' : p.stock <= 3 ? 'text-amber-600' : 'text-gray-700'}`}>

@@ -11,6 +11,7 @@ export default function EditProductPage() {
   const [product, setProduct] = useState<Record<string, unknown> | null>(null)
   const [meta, setMeta] = useState<{ garment_types: { id: string; label: string }[]; collections: { id: string; label: string }[] } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [savedAt, setSavedAt] = useState(0) // trigger re-fetch after save
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -23,7 +24,7 @@ export default function EditProductPage() {
     setProduct(found ?? null)
     setMeta(mBody)
     setLoading(false)
-  }, [id])
+  }, [id, savedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load() }, [load])
 
@@ -32,16 +33,18 @@ export default function EditProductPage() {
 
   return (
     <div className="p-6 max-w-3xl">
-      <button onClick={() => router.back()} className="text-xs text-gray-500 hover:text-gray-900 mb-4 flex items-center gap-1">
-        ← Volver
-      </button>
-      <h1 className="text-xl font-semibold mb-6">Editar producto</h1>
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={() => router.push('/products')} className="text-xs text-gray-500 hover:text-gray-900">
+          ← Volver
+        </button>
+        <h1 className="text-xl font-semibold">Editar producto</h1>
+      </div>
       {meta && (
         <ProductForm
           initial={product}
           garmentTypes={meta.garment_types}
           collections={meta.collections}
-          onSaved={() => router.push('/products')}
+          onSaved={() => setSavedAt(Date.now())} // recarga los datos en vez de redirigir
           onDeleted={() => router.push('/products')}
         />
       )}
