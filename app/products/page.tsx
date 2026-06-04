@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { botFetch } from '@/lib/api'
 
 interface Product {
@@ -30,6 +32,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [retagging, setRetagging] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
+  const router = useRouter()
   const [toast, setToast] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -90,7 +93,7 @@ export default function ProductsPage() {
         <div>
           <h1 className="text-xl font-semibold mb-1">Productos</h1>
           <p className="text-sm text-gray-500">
-            Catálogo, etiquetas visuales (lo que el bot busca cuando un cliente pregunta) y pausa/activa.
+            Click en un producto para editar. Aquí también puedes analizar imágenes con IA y pausar/activar.
           </p>
         </div>
         <div className="flex gap-2">
@@ -99,15 +102,12 @@ export default function ProductsPage() {
             disabled={retagging}
             className="px-3 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded disabled:opacity-50"
           >
-            {retagging ? 'Analizando…' : 'Analizar nuevos con IA'}
+            {retagging ? 'Analizando…' : 'Analizar con IA'}
           </button>
-          <button
-            onClick={() => handleRetag(true)}
-            disabled={retagging}
-            className="px-3 py-2 text-xs uppercase tracking-wide border border-gray-300 text-gray-700 rounded disabled:opacity-50"
-          >
-            Re-analizar todos
-          </button>
+          <Link href="/products/new"
+            className="px-3 py-2 text-xs uppercase tracking-wide bg-gray-900 text-white rounded">
+            + Nuevo
+          </Link>
         </div>
       </div>
 
@@ -135,7 +135,9 @@ export default function ProductsPage() {
               </tr>
             ) : (
               products.map((p) => (
-                <tr key={p.id} className="border-t border-gray-100 align-middle">
+                <tr key={p.id} className="border-t border-gray-100 align-middle hover:bg-gray-50 cursor-pointer"
+                  onClick={() => router.push(`/products/${p.id}`)}>
+
                   <td className="px-4 py-3">
                     <img
                       src={backImageUrl(p.id, p.colors?.[0])}
@@ -184,12 +186,12 @@ export default function ProductsPage() {
                       <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded">Pausado</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => setEditing(p)}
                       className="px-3 py-1 text-xs border border-gray-300 rounded mr-2"
                     >
-                      Editar tags
+                      Tags
                     </button>
                     <button
                       onClick={() => toggleAvailable(p)}
