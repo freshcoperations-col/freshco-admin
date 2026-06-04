@@ -45,7 +45,6 @@ export default function ConversationsPage() {
   const [sending, setSending] = useState(false)
   const [aiPaused, setAiPaused] = useState(false)
   const [advisorName, setAdvisorName] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Obtener nombre del asesor logueado para el saludo
   useEffect(() => {
@@ -85,21 +84,11 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     if (selected) {
-      prevMessagesLen.current = 0
       loadMessages(selected)
       const conv = conversations.find((c) => c.customer_phone === selected)
       setAiPaused(conv?.ai_paused ?? false)
     }
   }, [selected, loadMessages, conversations])
-
-  const prevMessagesLen = useRef(0)
-  useEffect(() => {
-    if (!messagesEndRef.current) return
-    // Scroll instantáneo al abrir/cambiar conversación; suave solo en mensajes nuevos
-    const isInitialLoad = prevMessagesLen.current === 0 && messages.length > 0
-    messagesEndRef.current.scrollIntoView({ behavior: isInitialLoad ? 'instant' : 'smooth' })
-    prevMessagesLen.current = messages.length
-  }, [messages])
 
   // Realtime: suscripción a mensajes nuevos en Supabase
   useEffect(() => {
@@ -200,7 +189,7 @@ export default function ConversationsPage() {
       <div className={`md:hidden w-full h-[calc(100dvh-3rem)] ${showChat ? 'flex flex-col' : 'hidden'}`}>
         {selected && (
           <ChatView phone={selected} conversations={conversations} messages={messages}
-            loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
+            loadingMsgs={loadingMsgs} aiPaused={aiPaused}
             draft={draft} setDraft={setDraft} sending={sending} advisorName={advisorName}
             onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend}
             onDeleteConv={handleDeleteConv} />
@@ -237,7 +226,7 @@ export default function ConversationsPage() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {selected ? (
             <ChatView phone={selected} conversations={conversations} messages={messages}
-              loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
+              loadingMsgs={loadingMsgs} aiPaused={aiPaused}
               draft={draft} setDraft={setDraft} sending={sending} advisorName={advisorName}
               onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend}
               onDeleteConv={handleDeleteConv} />
@@ -252,13 +241,12 @@ export default function ConversationsPage() {
   )
 }
 
-function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef, aiPaused,
+function ChatView({ phone, conversations, messages, loadingMsgs, aiPaused,
   draft, setDraft, sending, advisorName, onBack, onToggleAI, onSend, onDeleteConv }: {
   phone: string
   conversations: { customer_phone: string; total_messages: number }[]
   messages: { id: string; direction: string; content: string; intent: string | null; created_at: string }[]
   loadingMsgs: boolean
-  messagesEndRef: React.RefObject<HTMLDivElement>
   aiPaused: boolean
   draft: string
   setDraft: (v: string) => void
@@ -269,6 +257,27 @@ function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef,
   onSend: () => void
   onDeleteConv: () => void
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const prevLen = useRef(0)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || messages.length === 0) return
+    const isInitial = prevLen.current === 0
+    // scrollTop = scrollHeight es el método más confiable en todos los browsers móviles
+    if (isInitial) {
+      el.scrollTop = el.scrollHeight
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+    prevLen.current = messages.length
+  }, [messages])
+
+  // Reset al cambiar de conversación
+  useEffect(() => {
+    prevLen.current = 0
+  }, [phone])
+
   return (
     <div className="flex flex-col h-full">
       <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200 bg-white flex-shrink-0">
@@ -293,7 +302,7 @@ function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef,
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50">
         {loadingMsgs ? (
           <div className="text-center text-xs text-gray-400 pt-8">Cargando mensajes…</div>
         ) : messages.length === 0 ? (
@@ -308,7 +317,6 @@ function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef,
             </div>
           </div>
         ))}
-        <div ref={messagesEndRef} />
       </div>
       <div className="border-t border-gray-200 bg-white p-3 flex-shrink-0">
         {aiPaused && (
