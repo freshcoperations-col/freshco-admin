@@ -44,7 +44,7 @@ export default function EditProductPage() {
           initial={product}
           garmentTypes={meta.garment_types}
           collections={meta.collections}
-          onSaved={() => setSavedAt(Date.now())} // recarga los datos en vez de redirigir
+          onSaved={() => router.push('/products')}
           onDeleted={() => router.push('/products')}
         />
       )}
