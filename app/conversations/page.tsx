@@ -85,14 +85,20 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     if (selected) {
+      prevMessagesLen.current = 0
       loadMessages(selected)
       const conv = conversations.find((c) => c.customer_phone === selected)
       setAiPaused(conv?.ai_paused ?? false)
     }
   }, [selected, loadMessages, conversations])
 
+  const prevMessagesLen = useRef(0)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!messagesEndRef.current) return
+    // Scroll instantáneo al abrir/cambiar conversación; suave solo en mensajes nuevos
+    const isInitialLoad = prevMessagesLen.current === 0 && messages.length > 0
+    messagesEndRef.current.scrollIntoView({ behavior: isInitialLoad ? 'instant' : 'smooth' })
+    prevMessagesLen.current = messages.length
   }, [messages])
 
   // Realtime: suscripción a mensajes nuevos en Supabase
@@ -190,7 +196,8 @@ export default function ConversationsPage() {
         </div>
       </div>
 
-      <div className={`md:hidden w-full h-full ${showChat ? 'flex flex-col' : 'hidden'}`}>
+      {/* Chat móvil: altura exacta de pantalla menos el header del AdminShell (h-12 = 3rem) */}
+      <div className={`md:hidden w-full h-[calc(100dvh-3rem)] ${showChat ? 'flex flex-col' : 'hidden'}`}>
         {selected && (
           <ChatView phone={selected} conversations={conversations} messages={messages}
             loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
