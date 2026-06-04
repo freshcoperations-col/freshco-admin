@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { botFetch } from '@/lib/api'
 import { uploadProductImage } from '@/lib/upload'
 
@@ -91,7 +91,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     Array.isArray(initial?.colors) ? (initial.colors as string[]) : [],
   )
   const [colorDraft, setColorDraft] = useState('')
-  const [sizeDraft, setSizeDraft] = useState('')
+  const [availableSizes, setAvailableSizes] = useState<string[]>(SIZES_BY_TYPE[garmentType] ?? SIZES_SHIRT)
   const [material, setMaterial] = useState(String(initial?.material ?? ''))
   const [printingMethod, setPrintingMethod] = useState(String(initial?.printing_method ?? ''))
 
@@ -118,6 +118,26 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [imageKeys, setImageKeys] = useState<Record<string, number>>({}) // force refresh
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingUpload, setPendingUpload] = useState<{ color: string; side: 'frente' | 'detras' } | null>(null)
+
+  // Cargar tallas y filtrar selección al cambiar tipo de prenda
+  useEffect(() => {
+    if (!garmentType) return
+    botFetch(`/api/admin/web/size-guide/${garmentType}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const loaded: string[] = (Array.isArray(d.sizes) && d.sizes.length > 0)
+          ? d.sizes
+          : (SIZES_BY_TYPE[garmentType] ?? SIZES_SHIRT)
+        setAvailableSizes(loaded)
+        // Eliminar tallas seleccionadas que no pertenecen al nuevo tipo
+        setSizes((prev) => prev.filter((s) => loaded.includes(s)))
+      })
+      .catch(() => {
+        const fallback = SIZES_BY_TYPE[garmentType] ?? SIZES_SHIRT
+        setAvailableSizes(fallback)
+        setSizes((prev) => prev.filter((s) => fallback.includes(s)))
+      })
+  }, [garmentType])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -314,58 +334,23 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
       {/* Tallas */}
       <Section title="Tallas disponibles">
-        {/* Tallas seleccionadas */}
-        {sizes.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {sizes.map((s) => (
-              <span key={s} className="px-3 py-1 text-xs bg-gray-900 text-white rounded-full flex items-center gap-1">
-                {s}
-                <button type="button" onClick={() => setSizes(sizes.filter((x) => x !== s))}
-                  className="ml-1 text-gray-400 hover:text-white">×</button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Accesos rápidos — solo las tallas del tipo de prenda seleccionado */}
-        {(() => {
-          const quickSizes = SIZES_BY_TYPE[garmentType]
-          if (!quickSizes) return null
-          return (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              <span className="text-xs text-gray-400 self-center mr-1">Accesos rápidos:</span>
-              {quickSizes.map((s) => (
-                <button key={s} type="button" onClick={() => toggleSize(s)}
-                  className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          )
-        })()}
-
-        {/* Talla personalizada */}
-        <div className="flex gap-2">
-          <input value={sizeDraft}
-            onChange={(e) => setSizeDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                const t = sizeDraft.trim()
-                if (t && !sizes.includes(t)) { setSizes([...sizes, t]); setSizeDraft('') }
-              }
-            }}
-            className={INPUT} placeholder="Otra talla (ej: 28x30, 57, One Size…)" />
-          <button type="button"
-            onClick={() => {
-              const t = sizeDraft.trim()
-              if (t && !sizes.includes(t)) { setSizes([...sizes, t]); setSizeDraft('') }
-            }}
-            className="px-3 py-2 text-xs border border-gray-300 rounded">
-            Agregar
-          </button>
+        <p className="text-xs text-gray-400 mb-3">
+          Tallas definidas en <strong>Guía de tallas</strong> para {garmentTypes.find(g => g.id === garmentType)?.label ?? 'este tipo'}.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {availableSizes.map((s) => (
+            <button key={s} type="button" onClick={() => toggleSize(s)}
+              className={`px-3 py-2 text-sm font-medium rounded border transition-colors ${sizes.includes(s)
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'border-gray-300 text-gray-700 hover:border-gray-500'}`}>
+              {s}
+            </button>
+          ))}
+          {availableSizes.length === 0 && (
+            <span className="text-xs text-gray-400">
+              No hay tallas configuradas. Ve a <strong>Guía de tallas</strong> para agregarlas.
+            </span>
+          )}
         </div>
       </Section>
 

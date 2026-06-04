@@ -21,6 +21,7 @@ const NAV = [
   { href: '/conversations', label: 'Conversaciones', match: (p: string) => p.startsWith('/conversations') },
   { href: '/products', label: 'Productos', match: (p: string) => p.startsWith('/products') },
   { href: '/coupons', label: 'Cupones', match: (p: string) => p.startsWith('/coupons') },
+  { href: '/sizes', label: 'Guía de tallas', match: (p: string) => p.startsWith('/sizes') },
 ]
 
 export function AdminSidebar({ onClose }: { onClose?: () => void }) {
