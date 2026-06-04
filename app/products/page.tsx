@@ -13,6 +13,7 @@ interface Product {
   on_sale: boolean
   stock: number
   available: boolean
+  out_of_stock: boolean
   featured: boolean | null
   free_shipping: boolean | null
   colors: string[] | null
@@ -83,7 +84,21 @@ export default function ProductsPage() {
     })
     if (res.ok) {
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, available: !x.available } : x)))
-      showToast(p.available ? 'Producto pausado.' : 'Producto activado.')
+      showToast(p.available ? 'Producto ocultado.' : 'Producto visible.')
+    } else {
+      showToast('No se pudo cambiar.')
+    }
+  }
+
+  async function toggleOutOfStock(p: Product) {
+    const newVal = !p.out_of_stock
+    const res = await botFetch(`/api/admin/web/products/${p.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ out_of_stock: newVal }),
+    })
+    if (res.ok) {
+      setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, out_of_stock: newVal } : x)))
+      showToast(newVal ? 'Marcado como agotado.' : 'Marcado como disponible.')
     } else {
       showToast('No se pudo cambiar.')
     }
@@ -220,28 +235,34 @@ export default function ProductsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {p.available ? (
-                      <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Activo</span>
-                    ) : (
-                      <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded">Pausado</span>
-                    )}
-                    {p.stock === 0 && p.available && (
-                      <div className="text-xs text-red-500 mt-1">Sin stock</div>
-                    )}
+                    <div className="flex flex-col gap-1">
+                      {p.available ? (
+                        <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded w-fit">Visible</span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded w-fit">Oculto</span>
+                      )}
+                      {(p.out_of_stock || p.stock === 0) && (
+                        <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded w-fit">Agotado</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => setEditing(p)}
-                      className="px-3 py-1 text-xs border border-gray-300 rounded mr-2"
-                    >
-                      Tags
-                    </button>
-                    <button
-                      onClick={() => toggleAvailable(p)}
-                      className="px-3 py-1 text-xs border border-gray-300 rounded"
-                    >
-                      {p.available ? 'Pausar' : 'Activar'}
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => setEditing(p)} className="px-2 py-1 text-xs border border-gray-300 rounded">Tags</button>
+                      <button onClick={() => toggleAvailable(p)} className="px-2 py-1 text-xs border border-gray-300 rounded">
+                        {p.available ? 'Ocultar' : 'Mostrar'}
+                      </button>
+                      <button
+                        onClick={() => toggleOutOfStock(p)}
+                        disabled={p.stock === 0}
+                        className={`px-2 py-1 text-xs border rounded disabled:opacity-40 ${
+                          p.out_of_stock ? 'border-green-300 text-green-700' : 'border-red-200 text-red-600'
+                        }`}
+                        title={p.stock === 0 ? 'Stock en 0 — agotado automáticamente' : ''}
+                      >
+                        {p.out_of_stock ? 'Disponible' : 'Agotado'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
