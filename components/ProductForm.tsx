@@ -7,9 +7,18 @@ import { uploadProductImage } from '@/lib/upload'
 interface GarmentType { id: string; label: string }
 interface Collection { id: string; label: string }
 
-const SIZES_SHIRT = ['XS', 'S', 'M', 'L', 'XL', 'XXL']  // camisetas y hoodies
-const SIZES_CAP   = ['L/XL']                               // gorras
-const SIZES_PANTS = ['28', '30', '32', '34', '36', '38']  // pantalones
+const SIZES_SHIRT = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const SIZES_CAP   = ['L/XL']
+const SIZES_PANTS = ['28', '30', '32', '34', '36', '38']
+
+const SIZES_BY_TYPE: Record<string, string[]> = {
+  camisetas: SIZES_SHIRT,
+  hoodies:   SIZES_SHIRT,
+  sudaderas: SIZES_SHIRT,
+  chaquetas: SIZES_SHIRT,
+  gorras:    SIZES_CAP,
+  pantalones: SIZES_PANTS,
+}
 const ACCENT_FROM = 'ÁÉÍÓÚÜÑáéíóúüñ'
 const ACCENT_TO   = 'AEIOUUNaeiouun'
 
@@ -318,43 +327,24 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
           </div>
         )}
 
-        {/* Accesos rápidos por tipo de prenda */}
-        <div className="space-y-2 mb-3">
-          <p className="text-xs text-gray-400">Accesos rápidos:</p>
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs text-gray-400 self-center mr-1">Camisetas/Buzos:</span>
-            {SIZES_SHIRT.map((s) => (
-              <button key={s} type="button" onClick={() => toggleSize(s)}
-                className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
-                {s}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs text-gray-400 self-center mr-1">Gorras:</span>
-            {SIZES_CAP.map((s) => (
-              <button key={s} type="button" onClick={() => toggleSize(s)}
-                className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
-                {s}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs text-gray-400 self-center mr-1">Pantalones:</span>
-            {SIZES_PANTS.map((s) => (
-              <button key={s} type="button" onClick={() => toggleSize(s)}
-                className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Accesos rápidos — solo las tallas del tipo de prenda seleccionado */}
+        {(() => {
+          const quickSizes = SIZES_BY_TYPE[garmentType]
+          if (!quickSizes) return null
+          return (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              <span className="text-xs text-gray-400 self-center mr-1">Accesos rápidos:</span>
+              {quickSizes.map((s) => (
+                <button key={s} type="button" onClick={() => toggleSize(s)}
+                  className={`px-2.5 py-1 text-xs rounded border ${sizes.includes(s)
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'border-gray-300 text-gray-600 hover:border-gray-500'}`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
 
         {/* Talla personalizada */}
         <div className="flex gap-2">
