@@ -133,54 +133,119 @@ export default function ConversationsPage() {
     return !q || c.customer_phone.includes(q) || c.last_message.toLowerCase().includes(q)
   })
 
-  // En móvil: mostrar lista O chat, no ambos a la vez
   const showChat = selected !== null
-  const ConvList = (
-    <div className="flex flex-col bg-white h-full">
-      <div className="p-3 border-b border-gray-200">
-        <h2 className="text-sm font-semibold mb-2">Conversaciones</h2>
-        <input placeholder="Buscar por teléfono…" value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded bg-white" />
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Móvil: lista O chat a pantalla completa */}
+      <div className={`md:hidden w-full h-full ${showChat ? 'hidden' : 'flex flex-col'} bg-white`}>
+        <div className="p-3 border-b border-gray-200">
+          <h2 className="text-sm font-semibold mb-2">Conversaciones</h2>
+          <input placeholder="Buscar por teléfono…" value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded bg-white" />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loadingConvs ? (
+            <div className="p-4 text-xs text-gray-400 text-center">Cargando…</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-4 text-xs text-gray-400 text-center">Sin conversaciones.</div>
+          ) : filtered.map((c) => (
+            <button key={c.customer_phone} onClick={() => setSelected(c.customer_phone)}
+              className="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-mono font-medium">+{c.customer_phone}</span>
+                <span className="text-[10px] text-gray-400">{new Date(c.last_message_at).toLocaleDateString('es-CO')}</span>
+              </div>
+              <div className="text-xs text-gray-600 truncate">{c.last_message}</div>
+              {c.ai_paused && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Manual</span>}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        {loadingConvs ? (
-          <div className="p-4 text-xs text-gray-400 text-center">Cargando…</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-4 text-xs text-gray-400 text-center">Sin conversaciones.</div>
-        ) : filtered.map((c) => (
-          <button key={c.customer_phone} onClick={() => setSelected(c.customer_phone)}
-            className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 ${selected === c.customer_phone ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-mono font-medium">+{c.customer_phone}</span>
-              <span className="text-[10px] text-gray-400">{new Date(c.last_message_at).toLocaleDateString('es-CO')}</span>
+
+      <div className={`md:hidden w-full h-full ${showChat ? 'flex flex-col' : 'hidden'}`}>
+        {selected && (
+          <ChatView phone={selected} conversations={conversations} messages={messages}
+            loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
+            draft={draft} setDraft={setDraft} sending={sending}
+            onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend} />
+        )}
+      </div>
+
+      {/* Desktop: dos paneles lado a lado */}
+      <div className="hidden md:flex w-full h-full overflow-hidden">
+        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col bg-white">
+          <div className="p-3 border-b border-gray-200">
+            <h2 className="text-sm font-semibold mb-2">Conversaciones</h2>
+            <input placeholder="Buscar por teléfono…" value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded bg-white" />
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {loadingConvs ? (
+              <div className="p-4 text-xs text-gray-400 text-center">Cargando…</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-4 text-xs text-gray-400 text-center">Sin conversaciones.</div>
+            ) : filtered.map((c) => (
+              <button key={c.customer_phone} onClick={() => setSelected(c.customer_phone)}
+                className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 ${selected === c.customer_phone ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono font-medium">+{c.customer_phone}</span>
+                  <span className="text-[10px] text-gray-400">{new Date(c.last_message_at).toLocaleDateString('es-CO')}</span>
+                </div>
+                <div className="text-xs text-gray-600 truncate">{c.last_message}</div>
+                {c.ai_paused && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Manual</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {selected ? (
+            <ChatView phone={selected} conversations={conversations} messages={messages}
+              loadingMsgs={loadingMsgs} messagesEndRef={messagesEndRef} aiPaused={aiPaused}
+              draft={draft} setDraft={setDraft} sending={sending}
+              onBack={() => setSelected(null)} onToggleAI={handleToggleAI} onSend={handleSend} />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
+              Selecciona una conversación
             </div>
-            <div className="text-xs text-gray-600 truncate">{c.last_message}</div>
-            <div className="flex items-center gap-1 mt-1">
-              {INTENT_LABEL[c.last_intent] && <span className="text-[10px] text-gray-400">{INTENT_LABEL[c.last_intent]}</span>}
-              {c.ai_paused && <span className="ml-auto text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Manual</span>}
-            </div>
-          </button>
-        ))}
+          )}
+        </div>
       </div>
     </div>
   )
+}
 
-  const ChatPanel = selected ? (
+function ChatView({ phone, conversations, messages, loadingMsgs, messagesEndRef, aiPaused,
+  draft, setDraft, sending, onBack, onToggleAI, onSend }: {
+  phone: string
+  conversations: { customer_phone: string; total_messages: number }[]
+  messages: { id: string; direction: string; content: string; intent: string | null; created_at: string }[]
+  loadingMsgs: boolean
+  messagesEndRef: React.RefObject<HTMLDivElement>
+  aiPaused: boolean
+  draft: string
+  setDraft: (v: string) => void
+  sending: boolean
+  onBack: () => void
+  onToggleAI: () => void
+  onSend: () => void
+}) {
+  return (
     <div className="flex flex-col h-full">
       <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
-          {/* Botón volver — solo en móvil */}
-          <button onClick={() => setSelected(null)} className="md:hidden text-gray-500 hover:text-gray-900 mr-1">
-            ←
-          </button>
+          <button onClick={onBack} className="md:hidden text-gray-500 hover:text-gray-900">←</button>
           <div>
-            <div className="text-sm font-mono font-medium">+{selected}</div>
-            <div className="text-xs text-gray-500">{conversations.find((c) => c.customer_phone === selected)?.total_messages ?? 0} mensajes</div>
+            <div className="text-sm font-mono font-medium">+{phone}</div>
+            <div className="text-xs text-gray-500">
+              {conversations.find((c) => c.customer_phone === phone)?.total_messages ?? 0} mensajes
+            </div>
           </div>
         </div>
-        <button onClick={handleToggleAI}
-          className={`px-3 py-1.5 text-xs rounded border font-medium transition-colors ${aiPaused ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-green-50 border-green-300 text-green-700'}`}>
+        <button onClick={onToggleAI}
+          className={`px-3 py-1.5 text-xs rounded border font-medium ${aiPaused ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-green-50 border-green-300 text-green-700'}`}>
           {aiPaused ? '🟠 Pausado' : '🟢 AI activo'}
         </button>
       </div>
@@ -205,38 +270,13 @@ export default function ConversationsPage() {
         {aiPaused && <div className="text-xs text-orange-600 mb-2">AI pausado — tu mensaje llegará al cliente.</div>}
         <div className="flex gap-2">
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
             rows={2} placeholder="Escribe un mensaje…"
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded resize-none focus:outline-none focus:border-gray-500" />
-          <button onClick={handleSend} disabled={sending || !draft.trim()}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded resize-none focus:outline-none" />
+          <button onClick={onSend} disabled={sending || !draft.trim()}
             className="px-4 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded disabled:opacity-50 self-end">
             {sending ? '…' : 'Enviar'}
           </button>
-      </div>
-    </div>
-  ) : null
-
-  return (
-    <div className="flex h-full overflow-hidden">
-      {/* Móvil: lista O chat a pantalla completa */}
-      <div className={`md:hidden w-full h-full ${showChat ? 'hidden' : 'flex flex-col'}`}>
-        {ConvList}
-      </div>
-      <div className={`md:hidden w-full h-full ${showChat ? 'flex flex-col' : 'hidden'}`}>
-        {ChatPanel}
-      </div>
-
-      {/* Desktop: dos paneles lado a lado */}
-      <div className="hidden md:flex w-full h-full overflow-hidden">
-        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col">
-          {ConvList}
-        </div>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {ChatPanel ?? (
-            <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
-              Selecciona una conversación
-            </div>
-          )}
         </div>
       </div>
     </div>
