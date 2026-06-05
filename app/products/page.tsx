@@ -20,6 +20,8 @@ interface Product {
   sizes: string[] | null
   visual_tags: string[] | null
   garment_type_label: string | null
+  collection_labels: string[] | null
+  audience: string | null
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -33,11 +35,13 @@ function backImageUrl(id: string, color?: string): string {
 interface Filters {
   query: string
   garmentType: string
+  collection: string
+  audience: '' | 'hombre' | 'mujer' | 'unisex'
   estado: '' | 'visible' | 'oculto' | 'agotado'
   badge: '' | 'sale' | 'free_shipping'
 }
 
-const EMPTY_FILTERS: Filters = { query: '', garmentType: '', estado: '', badge: '' }
+const EMPTY_FILTERS: Filters = { query: '', garmentType: '', collection: '', audience: '', estado: '', badge: '' }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -49,6 +53,7 @@ export default function ProductsPage() {
   const [toast, setToast] = useState<string | null>(null)
 
   const garmentTypes = Array.from(new Set(products.map((p) => p.garment_type_label).filter(Boolean))) as string[]
+  const collections = Array.from(new Set(products.flatMap((p) => p.collection_labels ?? []))).sort()
 
   const filtered = products.filter((p) => {
     if (filters.query) {
@@ -56,6 +61,8 @@ export default function ProductsPage() {
       if (!p.name.toLowerCase().includes(q)) return false
     }
     if (filters.garmentType && p.garment_type_label !== filters.garmentType) return false
+    if (filters.collection && !(p.collection_labels ?? []).includes(filters.collection)) return false
+    if (filters.audience && (p.audience ?? 'unisex') !== filters.audience) return false
     if (filters.estado === 'visible' && !p.available) return false
     if (filters.estado === 'oculto' && p.available) return false
     if (filters.estado === 'agotado' && !p.out_of_stock && p.stock !== 0) return false
@@ -180,6 +187,30 @@ export default function ProductsPage() {
             <option key={g} value={g}>{g}</option>
           ))}
         </select>
+
+        <select
+          value={filters.collection}
+          onChange={(e) => setFilters((f) => ({ ...f, collection: e.target.value }))}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+        >
+          <option value="">Todas las colecciones</option>
+          {collections.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+
+        <div className="flex gap-1">
+          {(['hombre', 'mujer', 'unisex'] as const).map((v) => (
+            <button key={v} onClick={() => setFilter('audience', v)}
+              className={`px-2.5 py-1 text-xs rounded border capitalize ${
+                filters.audience === v
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
+              }`}>
+              {v}
+            </button>
+          ))}
+        </div>
 
         <div className="flex gap-1">
           {(['visible', 'oculto', 'agotado'] as const).map((v) => (
