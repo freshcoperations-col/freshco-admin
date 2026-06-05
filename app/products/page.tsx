@@ -30,13 +30,45 @@ function backImageUrl(id: string, color?: string): string {
   return `${STORAGE_BASE}${encodeURIComponent(`${id}-detras-${slug}.png`)}`
 }
 
+interface Filters {
+  query: string
+  garmentType: string
+  estado: '' | 'visible' | 'oculto' | 'agotado'
+  badge: '' | 'sale' | 'free_shipping'
+}
+
+const EMPTY_FILTERS: Filters = { query: '', garmentType: '', estado: '', badge: '' }
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [retagging, setRetagging] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const router = useRouter()
   const [toast, setToast] = useState<string | null>(null)
+
+  const garmentTypes = Array.from(new Set(products.map((p) => p.garment_type_label).filter(Boolean))) as string[]
+
+  const filtered = products.filter((p) => {
+    if (filters.query) {
+      const q = filters.query.toLowerCase()
+      if (!p.name.toLowerCase().includes(q)) return false
+    }
+    if (filters.garmentType && p.garment_type_label !== filters.garmentType) return false
+    if (filters.estado === 'visible' && !p.available) return false
+    if (filters.estado === 'oculto' && p.available) return false
+    if (filters.estado === 'agotado' && !p.out_of_stock && p.stock !== 0) return false
+    if (filters.badge === 'sale' && !p.on_sale) return false
+    if (filters.badge === 'free_shipping' && !p.free_shipping) return false
+    return true
+  })
+
+  const hasFilters = Object.values(filters).some(Boolean)
+
+  function setFilter<K extends keyof Filters>(k: K, v: Filters[K]) {
+    setFilters((prev) => ({ ...prev, [k]: prev[k] === v ? '' : v }))
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -128,6 +160,71 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <input
+          type="text"
+          placeholder="Buscar por nombre…"
+          value={filters.query}
+          onChange={(e) => setFilters((f) => ({ ...f, query: e.target.value }))}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded w-48 focus:outline-none focus:ring-1 focus:ring-gray-400"
+        />
+
+        <select
+          value={filters.garmentType}
+          onChange={(e) => setFilters((f) => ({ ...f, garmentType: e.target.value }))}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-400"
+        >
+          <option value="">Todos los tipos</option>
+          {garmentTypes.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+
+        <div className="flex gap-1">
+          {(['visible', 'oculto', 'agotado'] as const).map((v) => (
+            <button key={v} onClick={() => setFilter('estado', v)}
+              className={`px-2.5 py-1 text-xs rounded border capitalize ${
+                filters.estado === v
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
+              }`}>
+              {v}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-1">
+          <button onClick={() => setFilter('badge', 'sale')}
+            className={`px-2.5 py-1 text-xs rounded border ${
+              filters.badge === 'sale'
+                ? 'bg-red-600 text-white border-red-600'
+                : 'border-gray-300 text-gray-600 hover:border-gray-400'
+            }`}>
+            SALE
+          </button>
+          <button onClick={() => setFilter('badge', 'free_shipping')}
+            className={`px-2.5 py-1 text-xs rounded border ${
+              filters.badge === 'free_shipping'
+                ? 'bg-green-600 text-white border-green-600'
+                : 'border-gray-300 text-gray-600 hover:border-gray-400'
+            }`}>
+            Envío gratis
+          </button>
+        </div>
+
+        {hasFilters && (
+          <button onClick={() => setFilters(EMPTY_FILTERS)}
+            className="px-2.5 py-1 text-xs text-gray-400 hover:text-gray-700 underline">
+            Limpiar filtros
+          </button>
+        )}
+
+        <span className="text-xs text-gray-400 ml-auto">
+          {filtered.length} de {products.length} productos
+        </span>
+      </div>
+
       {/* Tabla — solo desktop */}
       <div className="hidden md:block bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -149,12 +246,14 @@ export default function ProductsPage() {
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-gray-400">Cargando…</td>
               </tr>
-            ) : products.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-gray-400">Sin productos.</td>
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-400">
+                  {hasFilters ? 'Sin resultados para estos filtros.' : 'Sin productos.'}
+                </td>
               </tr>
             ) : (
-              products.map((p) => (
+              filtered.map((p) => (
                 <tr key={p.id} className="border-t border-gray-100 align-middle hover:bg-gray-50 cursor-pointer"
                   onClick={() => router.push(`/products/${p.id}`)}>
 
@@ -278,9 +377,11 @@ export default function ProductsPage() {
       <div className="md:hidden space-y-3">
         {loading ? (
           <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">Cargando…</div>
-        ) : products.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">Sin productos.</div>
-        ) : products.map((p) => (
+        ) : filtered.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center text-gray-400 text-sm">
+            {hasFilters ? 'Sin resultados para estos filtros.' : 'Sin productos.'}
+          </div>
+        ) : filtered.map((p) => (
           <div key={p.id} onClick={() => router.push(`/products/${p.id}`)}
             className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer active:bg-gray-50">
             <div className="flex gap-3 items-start">
