@@ -113,6 +113,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
+  const productId = (initial?.id as string) ?? id ?? slugify(name)
+
   // Upload state por color
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
   const [imageKeys, setImageKeys] = useState<Record<string, number>>({}) // force refresh after upload
@@ -269,8 +271,6 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     if (fileInputRef.current) fileInputRef.current.value = ''
     setPendingUpload(null)
   }
-
-  const productId = (initial?.id as string) ?? id ?? slugify(name)
 
   return (
     <div className="space-y-8">
