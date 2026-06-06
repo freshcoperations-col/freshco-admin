@@ -323,7 +323,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
           <Field label="Estado">
             <div className="flex flex-col gap-2 pt-1">
               <Toggle label="En oferta" value={onSale} onChange={setOnSale} />
-              <Toggle label="Disponible" value={available} onChange={setAvailable} />
+              <Toggle label="Mostrar" value={available} onChange={setAvailable} />
               <Toggle label="Destacado" value={featured} onChange={setFeatured} />
               <Toggle
                 label="Envío gratis siempre 🎁 (sin importar ciudad ni total)"
