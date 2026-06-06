@@ -144,6 +144,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
   // Upload state por color
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
+  const [imageKeys, setImageKeys] = useState<Record<string, number>>({})
   const [imageLoaded, setImageLoaded] = useState<Record<string, boolean | undefined>>(() => {
     // Inicializar desde sessionStorage: imágenes borradas quedan en false
     const init: Record<string, boolean | undefined> = {}
