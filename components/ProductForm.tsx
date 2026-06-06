@@ -130,10 +130,33 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, colors.join(',')])
 
+  // sessionStorage key para persistir imágenes borradas entre navegaciones
+  function ssKey(color: string, side: string) { return `del:${productId}:${color}:${side}` }
+  function wasDeleted(color: string, side: string) {
+    try { return sessionStorage.getItem(ssKey(color, side)) === '1' } catch { return false }
+  }
+  function markDeleted(color: string, side: string) {
+    try { sessionStorage.setItem(ssKey(color, side), '1') } catch {}
+  }
+  function clearDeleted(color: string, side: string) {
+    try { sessionStorage.removeItem(ssKey(color, side)) } catch {}
+  }
+
   // Upload state por color
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
-  const [imageKeys, setImageKeys] = useState<Record<string, number>>({}) // force refresh after upload
-  const [imageLoaded, setImageLoaded] = useState<Record<string, boolean | undefined>>({})  // undefined=probing, true=exists, false=not found
+  const [imageLoaded, setImageLoaded] = useState<Record<string, boolean | undefined>>(() => {
+    // Inicializar desde sessionStorage: imágenes borradas quedan en false
+    const init: Record<string, boolean | undefined> = {}
+    if (typeof window !== 'undefined' && productId) {
+      const storedColors = Array.isArray(initial?.colors) ? (initial.colors as string[]) : []
+      storedColors.forEach((c) => {
+        ;(['frente', 'detras'] as const).forEach((s) => {
+          if (wasDeleted(c, s)) init[`${c}-${s}`] = false
+        })
+      })
+    }
+    return init
+  })
   const [deleting, setDeleting] = useState<Record<string, boolean>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingUpload, setPendingUpload] = useState<{ color: string; side: 'frente' | 'detras' } | null>(null)
@@ -259,7 +282,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     setUploading((prev) => ({ ...prev, [key]: false }))
 
     if (!result.ok) { showToast(`Error: ${result.error}`); return }
-    setImageKeys((prev) => ({ ...prev, [key]: Date.now() }))
+    clearDeleted(pendingUpload.color, pendingUpload.side)
     setImageLoaded((prev) => ({ ...prev, [key]: undefined }))
     showToast(`Imagen de ${pendingUpload.color} (${pendingUpload.side === 'frente' ? 'delantera' : 'trasera'}) subida ✅`)
 
@@ -471,7 +494,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                                   )
                                   setDeleting((p) => ({ ...p, [key]: false }))
                                   if (res.ok) {
-                                    // false (no undefined) para no recargar — el CDN podría seguir sirviendo
+                                    markDeleted(color, side)
                                     setImageLoaded((p) => ({ ...p, [key]: false }))
                                     showToast(`Imagen eliminada`)
                                   } else {
