@@ -116,16 +116,15 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
   const productId = (initial?.id as string) ?? id ?? slugify(name)
 
-  // Probar existencia de modelos 3D al cargar (fetch GET + abort para evitar descargar el archivo)
+  // Probar existencia de modelos 3D usando fetch HEAD (sin descargar el archivo)
   useEffect(() => {
     if (!productId) return
     colors.forEach((color) => {
       const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
       const url = `${STORAGE_BASE}${encodeURIComponent(`${productId}-3d-${colorSlug}.glb`)}`
-      const ctrl = new AbortController()
-      fetch(url, { method: 'GET', signal: ctrl.signal })
-        .then((r) => { ctrl.abort(); setModel3dExists((p) => ({ ...p, [color]: r.ok })) })
-        .catch((e) => { if (e.name !== 'AbortError') setModel3dExists((p) => ({ ...p, [color]: false })) })
+      fetch(url, { method: 'HEAD' })
+        .then((r) => setModel3dExists((p) => ({ ...p, [color]: r.ok })))
+        .catch(() => setModel3dExists((p) => ({ ...p, [color]: false })))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, colors.join(',')])
