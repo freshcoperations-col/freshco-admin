@@ -97,6 +97,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
   const [freeShipping, setFreeShipping] = useState(Boolean(initial?.free_shipping))
   const [model3dKeys, setModel3dKeys] = useState<Record<string, number>>({})
+  const [model3dExists, setModel3dExists] = useState<Record<string, boolean>>({})
   const [uploadingModel, setUploadingModel] = useState<Record<string, boolean>>({})
   const model3dFileRef = useRef<HTMLInputElement>(null)
   const [pendingModel, setPendingModel] = useState<string | null>(null)
@@ -114,6 +115,20 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [toast, setToast] = useState<string | null>(null)
 
   const productId = (initial?.id as string) ?? id ?? slugify(name)
+
+  // Probar existencia de modelos 3D al cargar (fetch GET + abort para evitar descargar el archivo)
+  useEffect(() => {
+    if (!productId) return
+    colors.forEach((color) => {
+      const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
+      const url = `${STORAGE_BASE}${encodeURIComponent(`${productId}-3d-${colorSlug}.glb`)}`
+      const ctrl = new AbortController()
+      fetch(url, { method: 'GET', signal: ctrl.signal })
+        .then((r) => { ctrl.abort(); setModel3dExists((p) => ({ ...p, [color]: r.ok })) })
+        .catch((e) => { if (e.name !== 'AbortError') setModel3dExists((p) => ({ ...p, [color]: false })) })
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, colors.join(',')])
 
   // Upload state por color
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
@@ -512,6 +527,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
               const modelUrl = `${STORAGE_BASE}${encodeURIComponent(modelFilename)}`
               const key = model3dKeys[color] ?? 0
               const isUp = uploadingModel[color]
+              const modelExistsNow = model3dExists[color] || key > 0
               return (
                 <div key={color} className="border border-gray-200 rounded-lg p-3">
                   <div className="text-sm font-medium mb-2">{color}</div>
@@ -525,37 +541,41 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                     >
                       {isUp ? 'Subiendo…' : '↑ Subir .glb'}
                     </button>
-                    <a
-                      href={`${modelUrl}?t=${key}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-2 py-1.5 text-xs border border-gray-200 rounded text-gray-500 hover:text-gray-800"
-                      title="Ver archivo (si existe)"
-                    >
-                      Ver
-                    </a>
-                    <button
-                      type="button"
-                      title="Eliminar modelo 3D"
-                      onClick={async () => {
-                        if (!confirm(`¿Eliminar el modelo 3D de ${color}?`)) return
-                        const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
-                        const res = await botFetch(
-                          `/api/admin/web/products/${productId}/upload-model?color=${encodeURIComponent(color)}&ext=glb`,
-                          { method: 'DELETE' },
-                        )
-                        if (res.ok) {
-                          setModel3dKeys((prev) => ({ ...prev, [color]: 0 }))
-                          showToast(`Modelo 3D de ${color} eliminado`)
-                        } else {
-                          const b = await res.json().catch(() => ({}))
-                          showToast(b.error || 'Error al eliminar')
-                        }
-                      }}
-                      className="px-2 py-1.5 text-xs border border-red-200 rounded text-red-500 hover:bg-red-50"
-                    >
-                      🗑
-                    </button>
+                    {modelExistsNow && (
+                      <a
+                        href={`${modelUrl}?t=${key}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-1.5 text-xs border border-gray-200 rounded text-gray-500 hover:text-gray-800"
+                      >
+                        Ver
+                      </a>
+                    )}
+                    {modelExistsNow && (
+                      <button
+                        type="button"
+                        title="Eliminar modelo 3D"
+                        onClick={async () => {
+                          if (!confirm(`¿Eliminar el modelo 3D de ${color}?`)) return
+                          const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
+                          const res = await botFetch(
+                            `/api/admin/web/products/${productId}/upload-model?color=${encodeURIComponent(color)}&ext=glb`,
+                            { method: 'DELETE' },
+                          )
+                          if (res.ok) {
+                            setModel3dKeys((prev) => ({ ...prev, [color]: 0 }))
+                            setModel3dExists((prev) => ({ ...prev, [color]: false }))
+                            showToast(`Modelo 3D de ${color} eliminado`)
+                          } else {
+                            const b = await res.json().catch(() => ({}))
+                            showToast(b.error || 'Error al eliminar')
+                          }
+                        }}
+                        className="px-2 py-1.5 text-xs border border-red-200 rounded text-red-500 hover:bg-red-50"
+                      >
+                        🗑
+                      </button>
+                    )}
                   </div>
                   {key > 0 && (
                     <p className="text-xs text-green-600 mt-1">✓ Subido correctamente</p>
@@ -597,6 +617,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                   throw new Error(`Error al subir: ${uploadRes.status} ${txt.slice(0, 100)}`)
                 }
                 setModel3dKeys((prev) => ({ ...prev, [color]: Date.now() }))
+                setModel3dExists((prev) => ({ ...prev, [color]: true }))
                 showToast(`Modelo 3D de ${color} subido ✅`)
               } catch (err) {
                 showToast(err instanceof Error ? err.message : 'Error de conexión')
