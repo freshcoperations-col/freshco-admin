@@ -466,11 +466,11 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                             >
                               {isUploading ? 'Subiendo…' : 'Subir imagen'}
                             </button>
-                            {productId && loaded && (
+                            {productId && (
                               <button
                                 type="button"
                                 disabled={isDeletingThis}
-                                title="Eliminar imagen"
+                                title="Eliminar imagen del storage"
                                 onClick={async () => {
                                   if (!confirm(`¿Eliminar imagen ${side === 'frente' ? 'delantera' : 'trasera'} de ${color}?`)) return
                                   setDeleting((p) => ({ ...p, [key]: true }))
