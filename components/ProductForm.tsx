@@ -456,22 +456,19 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                           {side === 'frente' ? 'Delantera' : 'Trasera (con estampado)'}
                         </div>
                         <div className="p-2 flex flex-col items-center gap-2">
-                          {url && productId && (
-                            <>
-                              <img
-                                key={upKey ?? 'init'}
-                                src={url}
-                                alt={`${color} ${side}`}
-                                className="w-full h-32 object-contain bg-gray-50"
-                                style={{ display: loaded ? 'block' : 'none' }}
-                                onLoad={() => setImageLoaded((p) => ({ ...p, [key]: true }))}
-                                onError={() => setImageLoaded((p) => ({ ...p, [key]: false }))}
-                              />
-                              {loaded === false && (
-                                <p className="text-xs text-gray-400 py-4">No hay imagen cargada</p>
-                              )}
-                            </>
-                          )}
+                          {loaded === false ? (
+                            <p className="text-xs text-gray-400 py-4 w-full text-center">No hay imagen cargada</p>
+                          ) : url && productId ? (
+                            <img
+                              key={upKey ?? 'init'}
+                              src={url}
+                              alt={`${color} ${side}`}
+                              className="w-full h-32 object-contain bg-gray-50"
+                              style={{ display: loaded ? 'block' : 'none' }}
+                              onLoad={() => setImageLoaded((p) => ({ ...p, [key]: true }))}
+                              onError={() => setImageLoaded((p) => ({ ...p, [key]: false }))}
+                            />
+                          ) : null}
                           <div className="flex gap-2 w-full">
                             <button
                               type="button"
@@ -496,6 +493,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                                   setDeleting((p) => ({ ...p, [key]: false }))
                                   if (res.ok) {
                                     markDeleted(color, side)
+                                    setImageKeys((p) => ({ ...p, [key]: -1 }))
                                     setImageLoaded((p) => ({ ...p, [key]: false }))
                                     showToast(`Imagen eliminada`)
                                   } else {
