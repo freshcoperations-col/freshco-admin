@@ -116,18 +116,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
   const productId = (initial?.id as string) ?? id ?? slugify(name)
 
-  // Probar existencia de modelos 3D usando fetch HEAD (sin descargar el archivo)
-  useEffect(() => {
-    if (!productId) return
-    colors.forEach((color) => {
-      const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
-      const url = `${STORAGE_BASE}${encodeURIComponent(`${productId}-3d-${colorSlug}.glb`)}`
-      fetch(url, { method: 'HEAD' })
-        .then((r) => setModel3dExists((p) => ({ ...p, [color]: r.ok })))
-        .catch(() => setModel3dExists((p) => ({ ...p, [color]: false })))
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, colors.join(',')])
+  // model3dExists se activa solo tras subir en esta sesión (sin probe automático)
 
   // sessionStorage key para persistir imágenes borradas entre navegaciones
   function ssKey(color: string, side: string) { return `del:${productId}:${color}:${side}` }
