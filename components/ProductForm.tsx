@@ -122,18 +122,19 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingUpload, setPendingUpload] = useState<{ color: string; side: 'frente' | 'detras' } | null>(null)
 
-  // Detectar qué imágenes de naming-convention realmente existen en Storage
+  // Detectar qué imágenes de naming-convention realmente existen en Storage.
+  // Usamos Image() en lugar de fetch HEAD para evitar restricciones CORS en el bucket público.
   useEffect(() => {
     if (!productId) return
-    const pairs = colors.flatMap((color) =>
-      (['frente', 'detras'] as const).map((side) => ({ color, side }))
-    )
-    pairs.forEach(({ color, side }) => {
-      const key = `${color}-${side}`
-      const url = imageUrl(productId, color, side)
-      fetch(url, { method: 'HEAD' })
-        .then((r) => setImageExists((p) => ({ ...p, [key]: r.ok })))
-        .catch(() => setImageExists((p) => ({ ...p, [key]: false })))
+    colors.forEach((color) => {
+      ;(['frente', 'detras'] as const).forEach((side) => {
+        const key = `${color}-${side}`
+        const url = imageUrl(productId, color, side) + `?t=${Date.now()}`
+        const img = new window.Image()
+        img.onload  = () => setImageExists((p) => ({ ...p, [key]: true }))
+        img.onerror = () => setImageExists((p) => ({ ...p, [key]: false }))
+        img.src = url
+      })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, colors.join(',')])
