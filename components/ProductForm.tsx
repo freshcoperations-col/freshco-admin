@@ -471,8 +471,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                                   )
                                   setDeleting((p) => ({ ...p, [key]: false }))
                                   if (res.ok) {
-                                    setImageKeys((p) => ({ ...p, [key]: Date.now() }))
-                                    setImageLoaded((p) => ({ ...p, [key]: undefined }))
+                                    // false (no undefined) para no recargar — el CDN podría seguir sirviendo
+                                    setImageLoaded((p) => ({ ...p, [key]: false }))
                                     showToast(`Imagen eliminada`)
                                   } else {
                                     const b = await res.json().catch(() => ({}))
