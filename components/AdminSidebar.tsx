@@ -43,7 +43,7 @@ export function AdminSidebar({ onClose }: { onClose?: () => void }) {
     })
 
     refreshKpis()
-    const interval = setInterval(refreshKpis, 30_000)
+    const interval = setInterval(refreshKpis, 10_000)
 
     // Notificaciones realtime de pedidos nuevos y mensajes que piden asesor.
     let channel: ReturnType<typeof supabase.channel> | null = null
