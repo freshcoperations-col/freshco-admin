@@ -22,14 +22,16 @@ interface Product {
   garment_type_label: string | null
   collection_labels: string[] | null
   audience: string | null
+  updated_at: string | null
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const STORAGE_BASE = `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/public/productos/`
 
-function backImageUrl(id: string, color?: string): string {
+function backImageUrl(id: string, color?: string, updatedAt?: string | null): string {
   const slug = (color ?? 'Vainilla').toLowerCase().replace(/\s+/g, '-')
-  return `${STORAGE_BASE}${encodeURIComponent(`${id}-detras-${slug}.png`)}`
+  const v = updatedAt ? `?v=${new Date(updatedAt).getTime()}` : `?v=${Date.now()}`
+  return `${STORAGE_BASE}${encodeURIComponent(`${id}-detras-${slug}.png`)}${v}`
 }
 
 interface Filters {
@@ -290,7 +292,7 @@ export default function ProductsPage() {
 
                   <td className="px-4 py-3">
                     <img
-                      src={backImageUrl(p.id, p.colors?.[0])}
+                      src={backImageUrl(p.id, p.colors?.[0], p.updated_at)}
                       alt={p.name}
                       className="w-12 h-12 object-contain bg-gray-100 rounded"
                       onError={(e) => {
@@ -416,7 +418,7 @@ export default function ProductsPage() {
           <div key={p.id} onClick={() => router.push(`/products/${p.id}`)}
             className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer active:bg-gray-50">
             <div className="flex gap-3 items-start">
-              <img src={backImageUrl(p.id, p.colors?.[0])} alt={p.name}
+              <img src={backImageUrl(p.id, p.colors?.[0], p.updated_at)} alt={p.name}
                 className="w-16 h-16 object-contain bg-gray-100 rounded flex-shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
               <div className="flex-1 min-w-0">
