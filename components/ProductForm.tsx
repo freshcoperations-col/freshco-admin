@@ -133,8 +133,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   // Upload state por color
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
   const [imageKeys, setImageKeys] = useState<Record<string, number>>({}) // force refresh after upload
-  const [imageVisible, setImageVisible] = useState<Record<string, boolean>>({}) // lazy-load: user clicked "Ver"
-  const [imageLoaded, setImageLoaded] = useState<Record<string, boolean>>({})  // img onLoad success
+  const [imageLoaded, setImageLoaded] = useState<Record<string, boolean | undefined>>({})  // undefined=probing, true=exists, false=not found
   const [deleting, setDeleting] = useState<Record<string, boolean>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingUpload, setPendingUpload] = useState<{ color: string; side: 'frente' | 'detras' } | null>(null)
@@ -261,8 +260,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
     if (!result.ok) { showToast(`Error: ${result.error}`); return }
     setImageKeys((prev) => ({ ...prev, [key]: Date.now() }))
-    setImageVisible((prev) => ({ ...prev, [key]: true }))
-    setImageLoaded((prev) => ({ ...prev, [key]: true }))
+    setImageLoaded((prev) => ({ ...prev, [key]: undefined }))
     showToast(`Imagen de ${pendingUpload.color} (${pendingUpload.side === 'frente' ? 'delantera' : 'trasera'}) subida ✅`)
 
     // Reset input
@@ -426,8 +424,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                     const upKey = imageKeys[key]
                     const url = productId ? `${imageUrl(productId, color, side)}?t=${upKey ?? 0}` : null
                     const isUploading = uploading[key]
-                    const visible = imageVisible[key] || (upKey != null && upKey > 0)
-                    const loaded = imageLoaded[key] || false
+                    const loaded = imageLoaded[key]  // undefined=cargando, true=existe, false=no existe
                     const isDeletingThis = deleting[key]
                     return (
                       <div key={side} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -435,27 +432,22 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                           {side === 'frente' ? 'Delantera' : 'Trasera (con estampado)'}
                         </div>
                         <div className="p-2 flex flex-col items-center gap-2">
-                          {visible && url ? (
-                            <img
-                              key={upKey ?? 'init'}
-                              src={url}
-                              alt={`${color} ${side}`}
-                              className="w-full h-32 object-contain bg-gray-50"
-                              onLoad={() => setImageLoaded((p) => ({ ...p, [key]: true }))}
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none'
-                                setImageLoaded((p) => ({ ...p, [key]: false }))
-                              }}
-                            />
-                          ) : productId ? (
-                            <button
-                              type="button"
-                              onClick={() => setImageVisible((p) => ({ ...p, [key]: true }))}
-                              className="w-full py-2 text-xs text-gray-400 border border-dashed border-gray-200 rounded hover:border-gray-400"
-                            >
-                              Ver imagen actual
-                            </button>
-                          ) : null}
+                          {url && productId && (
+                            <>
+                              <img
+                                key={upKey ?? 'init'}
+                                src={url}
+                                alt={`${color} ${side}`}
+                                className="w-full h-32 object-contain bg-gray-50"
+                                style={{ display: loaded ? 'block' : 'none' }}
+                                onLoad={() => setImageLoaded((p) => ({ ...p, [key]: true }))}
+                                onError={() => setImageLoaded((p) => ({ ...p, [key]: false }))}
+                              />
+                              {loaded === false && (
+                                <p className="text-xs text-gray-400 py-4">No hay imagen cargada</p>
+                              )}
+                            </>
+                          )}
                           <div className="flex gap-2 w-full">
                             <button
                               type="button"
@@ -479,9 +471,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                                   )
                                   setDeleting((p) => ({ ...p, [key]: false }))
                                   if (res.ok) {
-                                    setImageKeys((p) => ({ ...p, [key]: 0 }))
-                                    setImageVisible((p) => ({ ...p, [key]: false }))
-                                    setImageLoaded((p) => ({ ...p, [key]: false }))
+                                    setImageKeys((p) => ({ ...p, [key]: Date.now() }))
+                                    setImageLoaded((p) => ({ ...p, [key]: undefined }))
                                     showToast(`Imagen eliminada`)
                                   } else {
                                     const b = await res.json().catch(() => ({}))
