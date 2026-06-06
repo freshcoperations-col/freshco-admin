@@ -118,28 +118,11 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   // Upload state por color
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
   const [imageKeys, setImageKeys] = useState<Record<string, number>>({}) // force refresh after upload
-  const [imageVisible, setImageVisible] = useState<Record<string, boolean>>({}) // lazy-load control
-  const [imageExists, setImageExists] = useState<Record<string, boolean>>({}) // probe result
+  const [imageVisible, setImageVisible] = useState<Record<string, boolean>>({}) // lazy-load: user clicked "Ver"
+  const [imageLoaded, setImageLoaded] = useState<Record<string, boolean>>({})  // img onLoad success
   const [deleting, setDeleting] = useState<Record<string, boolean>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingUpload, setPendingUpload] = useState<{ color: string; side: 'frente' | 'detras' } | null>(null)
-
-  // Detectar qué imágenes de naming-convention realmente existen en Storage.
-  // Usamos Image() en lugar de fetch HEAD para evitar restricciones CORS en el bucket público.
-  useEffect(() => {
-    if (!productId) return
-    colors.forEach((color) => {
-      ;(['frente', 'detras'] as const).forEach((side) => {
-        const key = `${color}-${side}`
-        const url = imageUrl(productId, color, side) + `?t=${Date.now()}`
-        const img = new window.Image()
-        img.onload  = () => setImageExists((p) => ({ ...p, [key]: true }))
-        img.onerror = () => setImageExists((p) => ({ ...p, [key]: false }))
-        img.src = url
-      })
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, colors.join(',')])
 
   // Cargar tallas y filtrar selección al cambiar tipo de prenda
   useEffect(() => {
@@ -264,7 +247,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     if (!result.ok) { showToast(`Error: ${result.error}`); return }
     setImageKeys((prev) => ({ ...prev, [key]: Date.now() }))
     setImageVisible((prev) => ({ ...prev, [key]: true }))
-    setImageExists((prev) => ({ ...prev, [key]: true }))
+    setImageLoaded((prev) => ({ ...prev, [key]: true }))
     showToast(`Imagen de ${pendingUpload.color} (${pendingUpload.side === 'frente' ? 'delantera' : 'trasera'}) subida ✅`)
 
     // Reset input
@@ -428,8 +411,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                     const upKey = imageKeys[key]
                     const url = productId ? `${imageUrl(productId, color, side)}?t=${upKey ?? 0}` : null
                     const isUploading = uploading[key]
-                    const exists = imageExists[key] || (upKey != null && upKey > 0)
                     const visible = imageVisible[key] || (upKey != null && upKey > 0)
+                    const loaded = imageLoaded[key] || false
                     const isDeletingThis = deleting[key]
                     return (
                       <div key={side} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -437,17 +420,19 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                           {side === 'frente' ? 'Delantera' : 'Trasera (con estampado)'}
                         </div>
                         <div className="p-2 flex flex-col items-center gap-2">
-                          {exists && visible && url ? (
+                          {visible && url ? (
                             <img
-                              key={upKey}
+                              key={upKey ?? 'init'}
                               src={url}
                               alt={`${color} ${side}`}
                               className="w-full h-32 object-contain bg-gray-50"
+                              onLoad={() => setImageLoaded((p) => ({ ...p, [key]: true }))}
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none'
+                                setImageLoaded((p) => ({ ...p, [key]: false }))
                               }}
                             />
-                          ) : exists && !visible ? (
+                          ) : productId ? (
                             <button
                               type="button"
                               onClick={() => setImageVisible((p) => ({ ...p, [key]: true }))}
@@ -465,7 +450,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                             >
                               {isUploading ? 'Subiendo…' : 'Subir imagen'}
                             </button>
-                            {productId && exists && (
+                            {productId && loaded && (
                               <button
                                 type="button"
                                 disabled={isDeletingThis}
@@ -481,7 +466,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                                   if (res.ok) {
                                     setImageKeys((p) => ({ ...p, [key]: 0 }))
                                     setImageVisible((p) => ({ ...p, [key]: false }))
-                                    setImageExists((p) => ({ ...p, [key]: false }))
+                                    setImageLoaded((p) => ({ ...p, [key]: false }))
                                     showToast(`Imagen eliminada`)
                                   } else {
                                     const b = await res.json().catch(() => ({}))
