@@ -109,13 +109,15 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [uploadingExtra, setUploadingExtra] = useState(false)
   const extraFileRef = useRef<HTMLInputElement>(null)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [deletingProduct, setDeletingProduct] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   // Upload state por color
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
-  const [imageKeys, setImageKeys] = useState<Record<string, number>>({}) // force refresh
+  const [imageKeys, setImageKeys] = useState<Record<string, number>>({}) // force refresh after upload
+  const [imageVisible, setImageVisible] = useState<Record<string, boolean>>({}) // lazy-load control
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingUpload, setPendingUpload] = useState<{ color: string; side: 'frente' | 'detras' } | null>(null)
 
@@ -216,9 +218,9 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
   async function handleDelete() {
     if (!confirm(`¿Eliminar definitivamente el producto "${name}"? Esta acción no se puede deshacer.`)) return
-    setDeleting(true)
+    setDeletingProduct(true)
     const res = await botFetch(`/api/admin/web/products/${initial?.id}`, { method: 'DELETE' })
-    setDeleting(false)
+    setDeletingProduct(false)
     if (!res.ok) { const b = await res.json().catch(() => ({})); setError(b.error || 'No se pudo eliminar.'); return }
     onDeleted?.()
   }
@@ -241,6 +243,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
     if (!result.ok) { showToast(`Error: ${result.error}`); return }
     setImageKeys((prev) => ({ ...prev, [key]: Date.now() }))
+    setImageVisible((prev) => ({ ...prev, [key]: true }))
     showToast(`Imagen de ${pendingUpload.color} (${pendingUpload.side === 'frente' ? 'delantera' : 'trasera'}) subida ✅`)
 
     // Reset input
@@ -406,13 +409,15 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                     const upKey = imageKeys[key]
                     const url = productId ? `${imageUrl(productId, color, side)}?t=${upKey ?? 0}` : null
                     const isUploading = uploading[key]
+                    const visible = imageVisible[key] || (upKey != null && upKey > 0)
+                    const isDeletingThis = deleting[key]
                     return (
                       <div key={side} className="border border-gray-200 rounded-lg overflow-hidden">
                         <div className="text-xs text-gray-500 text-center py-1 bg-gray-50 border-b border-gray-200">
                           {side === 'frente' ? 'Delantera' : 'Trasera (con estampado)'}
                         </div>
                         <div className="p-2 flex flex-col items-center gap-2">
-                          {url && (
+                          {visible && url ? (
                             <img
                               key={upKey}
                               src={url}
@@ -422,15 +427,54 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                                 (e.target as HTMLImageElement).style.display = 'none'
                               }}
                             />
+                          ) : (
+                            productId && (
+                              <button
+                                type="button"
+                                onClick={() => setImageVisible((p) => ({ ...p, [key]: true }))}
+                                className="w-full py-2 text-xs text-gray-400 border border-dashed border-gray-200 rounded hover:border-gray-400"
+                              >
+                                Ver imagen actual
+                              </button>
+                            )
                           )}
-                          <button
-                            type="button"
-                            disabled={isUploading || !productId}
-                            onClick={() => triggerUpload(color, side)}
-                            className="w-full py-2 text-xs border border-gray-300 rounded hover:border-gray-500 disabled:opacity-50"
-                          >
-                            {isUploading ? 'Subiendo…' : 'Subir imagen'}
-                          </button>
+                          <div className="flex gap-2 w-full">
+                            <button
+                              type="button"
+                              disabled={isUploading || !productId}
+                              onClick={() => triggerUpload(color, side)}
+                              className="flex-1 py-2 text-xs border border-gray-300 rounded hover:border-gray-500 disabled:opacity-50"
+                            >
+                              {isUploading ? 'Subiendo…' : 'Subir imagen'}
+                            </button>
+                            {productId && (
+                              <button
+                                type="button"
+                                disabled={isDeletingThis}
+                                title="Eliminar imagen"
+                                onClick={async () => {
+                                  if (!confirm(`¿Eliminar imagen ${side === 'frente' ? 'delantera' : 'trasera'} de ${color}?`)) return
+                                  setDeleting((p) => ({ ...p, [key]: true }))
+                                  const res = await botFetch(
+                                    `/api/admin/web/products/${productId}/upload-image?color=${encodeURIComponent(color)}&side=${side}`,
+                                    { method: 'DELETE' },
+                                  )
+                                  setDeleting((p) => ({ ...p, [key]: false }))
+                                  if (res.ok) {
+                                    setImageKeys((p) => ({ ...p, [key]: 0 }))
+                                    setImageVisible((p) => ({ ...p, [key]: false }))
+                                    showToast(`Imagen eliminada`)
+                                  } else {
+                                    const b = await res.json().catch(() => ({}))
+                                    showToast(b.error || 'Error al eliminar')
+                                  }
+                                }}
+                                className="px-2 py-2 text-xs border border-red-200 rounded text-red-500 hover:bg-red-50 disabled:opacity-40"
+                              >
+                                {isDeletingThis ? '…' : '🗑'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )
@@ -663,9 +707,9 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       <div className="flex justify-between items-center pt-4 border-t border-gray-200">
         <div>
           {!isNew && onDeleted && (
-            <button type="button" onClick={handleDelete} disabled={deleting}
+            <button type="button" onClick={handleDelete} disabled={deletingProduct}
               className="px-4 py-2 text-xs text-red-700 border border-red-200 rounded hover:bg-red-50 disabled:opacity-50">
-              {deleting ? 'Eliminando…' : 'Eliminar producto'}
+              {deletingProduct ? 'Eliminando…' : 'Eliminar producto'}
             </button>
           )}
         </div>
