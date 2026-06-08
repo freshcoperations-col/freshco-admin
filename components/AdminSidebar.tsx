@@ -24,6 +24,7 @@ const NAV = [
   { href: '/coupons', label: 'Cupones', match: (p: string) => p.startsWith('/coupons') },
   { href: '/collections', label: 'Colecciones', match: (p: string) => p.startsWith('/collections') },
   { href: '/sizes', label: 'Guía de tallas', match: (p: string) => p.startsWith('/sizes') },
+  { href: '/inventory', label: 'Stock global', match: (p: string) => p.startsWith('/inventory') },
 ]
 
 export function AdminSidebar({ onClose }: { onClose?: () => void }) {
