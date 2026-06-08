@@ -436,13 +436,20 @@ function ShipForm({
     setWorking(true)
     const res = await botFetch(`/api/admin/web/orders/${order.short_id}/ship`, {
       method: 'POST',
-      body: JSON.stringify({ tracking_number: tracking.trim(), shipping_carrier: finalCarrier }),
+      body: JSON.stringify({ tracking_number: tracking.trim(), shipping_carrier: finalCarrier, is_update: isUpdate }),
     })
     setWorking(false)
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
       setErr(body.error || 'No se pudo marcar.')
       return
+    }
+    const body = await res.json().catch(() => ({}))
+    if (body.whatsapp_warning) {
+      setErr(`⚠️ Pedido marcado, pero falló el WhatsApp al cliente: ${body.whatsapp_warning}`)
+    }
+    if (body.email_warning) {
+      setErr((prev) => (prev ? prev + ` | Email: ${body.email_warning}` : `⚠️ Email no enviado: ${body.email_warning}`))
     }
     onDone()
   }

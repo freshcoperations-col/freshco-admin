@@ -92,6 +92,12 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   )
   const [colorDraft, setColorDraft] = useState('')
   const [availableSizes, setAvailableSizes] = useState<string[]>(SIZES_BY_TYPE[garmentType] ?? SIZES_SHIRT)
+  const [outOfStockSizes, setOutOfStockSizes] = useState<string[]>(
+    Array.isArray(initial?.out_of_stock_sizes) ? (initial.out_of_stock_sizes as string[]) : [],
+  )
+  const [outOfStockColors, setOutOfStockColors] = useState<string[]>(
+    Array.isArray(initial?.out_of_stock_colors) ? (initial.out_of_stock_colors as string[]) : [],
+  )
   const [material, setMaterial] = useState(String(initial?.material ?? ''))
   const [printingMethod, setPrintingMethod] = useState(String(initial?.printing_method ?? ''))
 
@@ -184,6 +190,14 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     setSizes((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
   }
 
+  function toggleOutOfStockSize(s: string) {
+    setOutOfStockSizes((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
+  }
+
+  function toggleOutOfStockColor(c: string) {
+    setOutOfStockColors((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c])
+  }
+
   function addColor() {
     const c = colorDraft.trim()
     if (!c || colors.includes(c)) return
@@ -225,6 +239,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       available,
       featured,
       free_shipping: freeShipping,
+      out_of_stock_sizes: outOfStockSizes,
+      out_of_stock_colors: outOfStockColors,
     }
 
     try {
@@ -384,16 +400,46 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
         </div>
       </Section>
 
+      {/* Tallas agotadas */}
+      {sizes.length > 0 && (
+        <Section title="Tallas agotadas">
+          <p className="text-xs text-gray-400 mb-3">
+            Marca las tallas que están sin stock — aparecen como <strong>agotado</strong> en la tienda sin ocultar el producto.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sizes.map((s) => {
+              const oos = outOfStockSizes.includes(s)
+              return (
+                <button key={s} type="button" onClick={() => toggleOutOfStockSize(s)}
+                  className={`px-3 py-2 text-sm font-medium rounded border transition-colors ${oos
+                    ? 'bg-red-100 text-red-700 border-red-300'
+                    : 'border-gray-300 text-gray-500 hover:border-gray-500'}`}>
+                  {s}{oos ? ' · agotado' : ''}
+                </button>
+              )
+            })}
+          </div>
+        </Section>
+      )}
+
       {/* Colores */}
       <Section title="Colores">
         <div className="flex flex-wrap gap-2 mb-3">
-          {colors.map((c) => (
-            <span key={c} className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full flex items-center gap-1">
-              {c}
-              <button type="button" onClick={() => removeColor(c)}
-                className="ml-1 text-gray-400 hover:text-red-600">×</button>
-            </span>
-          ))}
+          {colors.map((c) => {
+            const oos = outOfStockColors.includes(c)
+            return (
+              <span key={c} className={`px-3 py-1 text-xs rounded-full flex items-center gap-1 ${oos ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
+                {c}{oos ? ' · agotado' : ''}
+                <button type="button" onClick={() => toggleOutOfStockColor(c)}
+                  title={oos ? 'Marcar como disponible' : 'Marcar como agotado'}
+                  className={`ml-1 text-xs font-bold ${oos ? 'text-red-400 hover:text-red-700' : 'text-gray-400 hover:text-amber-600'}`}>
+                  {oos ? '✓' : '!'}
+                </button>
+                <button type="button" onClick={() => removeColor(c)}
+                  className="text-gray-400 hover:text-red-600">×</button>
+              </span>
+            )
+          })}
         </div>
         <div className="flex gap-2">
           <input value={colorDraft} onChange={(e) => setColorDraft(e.target.value)}
@@ -404,6 +450,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
             Agregar
           </button>
         </div>
+        <p className="text-xs text-gray-400 mt-2">Toca <strong>!</strong> en un color para marcarlo agotado.</p>
       </Section>
 
       {/* Detalles */}
