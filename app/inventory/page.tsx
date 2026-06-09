@@ -59,7 +59,7 @@ export default function InventoryPage() {
     }
     if (gtRes.ok) {
       const body = await gtRes.json()
-      setGarmentTypes((body.garment_types ?? []).map((g: { garment_type: string; label?: string }) => ({
+      setGarmentTypes((body.guides ?? []).map((g: { garment_type: string; label?: string }) => ({
         id: g.garment_type,
         label: g.label ?? g.garment_type,
       })))
