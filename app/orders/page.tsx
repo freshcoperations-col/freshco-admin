@@ -59,7 +59,8 @@ function OrdersPageInner() {
     setLoading(true)
     const query = new URLSearchParams()
     if (filter === '__pending_ship') {
-      query.set('payment_status', 'approved')
+      // aprobados + contraentrega pendientes de despacho
+      query.set('payment_status', 'approved,cod')
     } else {
       const opt = STATUS_OPTIONS.find((o) => o.value === filter)
       if (opt && 'kind' in opt) {

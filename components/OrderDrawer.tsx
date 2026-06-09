@@ -180,7 +180,7 @@ export function OrderDrawer({
             <Section title="Acciones">
               {action === 'idle' && (
                 <div className="flex flex-wrap gap-2">
-                  {data.order.payment_status === 'approved' && !data.order.tracking_number && (
+                  {(data.order.payment_status === 'approved' || data.order.payment_status === 'cod') && !data.order.tracking_number && (
                     <button
                       onClick={() => setAction('ship')}
                       className="px-4 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded"
