@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 interface Role {
   id: string
   name: string
+  is_system: boolean
 }
 
 interface AdminUser {
@@ -51,7 +52,7 @@ export default function UsersPage() {
     }
     if (rolesRes.ok) {
       const d = await rolesRes.json()
-      const r: Role[] = d.roles ?? []
+      const r: Role[] = (d.roles ?? []).filter((role: Role) => !role.is_system)
       setRoles(r)
       setNewRoleId((prev) => prev || r[0]?.id || '')
     }
