@@ -106,7 +106,7 @@ export default function InventoryPage() {
   }
 
   function garmentLabelFor(gt: string) {
-    return garmentTypes.find((g) => g.id === gt)?.label ?? gt || 'General'
+    return garmentTypes.find((g) => g.id === gt)?.label ?? (gt || 'General')
   }
 
   async function addOrUpdate() {
