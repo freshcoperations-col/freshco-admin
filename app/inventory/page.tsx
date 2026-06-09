@@ -22,6 +22,17 @@ interface ColorEntry {
   hex: string
 }
 
+interface LogEntry {
+  id: string
+  garment_type: string
+  size: string
+  color: string
+  change_qty: number
+  reason: string
+  order_id: string | null
+  created_at: string
+}
+
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<InventoryEntry[]>([])
   const [garmentTypes, setGarmentTypes] = useState<GarmentType[]>([])
@@ -30,6 +41,9 @@ export default function InventoryPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [filterGarment, setFilterGarment] = useState<string>('all')
+  const [log, setLog] = useState<LogEntry[]>([])
+  const [showLog, setShowLog] = useState(false)
+  const [loadingLog, setLoadingLog] = useState(false)
 
   // Form para agregar
   const [newGarmentType, setNewGarmentType] = useState('')
@@ -74,6 +88,26 @@ export default function InventoryPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function loadLog() {
+    setLoadingLog(true)
+    const res = await botFetch('/api/admin/web/inventory-log?limit=50')
+    if (res.ok) {
+      const body = await res.json()
+      setLog(body.log ?? [])
+    }
+    setLoadingLog(false)
+  }
+
+  function toggleLog() {
+    const next = !showLog
+    setShowLog(next)
+    if (next && log.length === 0) loadLog()
+  }
+
+  function garmentLabelFor(gt: string) {
+    return garmentTypes.find((g) => g.id === gt)?.label ?? gt || 'General'
+  }
 
   async function addOrUpdate() {
     const garment_type = newGarmentType.trim()
@@ -400,6 +434,66 @@ export default function InventoryPage() {
       <p className="text-xs text-gray-400 mt-4">
         Haz clic en la cantidad para editarla. El stock baja automáticamente con cada venta confirmada.
       </p>
+
+      {/* Historial de movimientos */}
+      <div className="mt-8">
+        <button
+          onClick={toggleLog}
+          className="text-sm text-gray-500 hover:text-gray-900 underline"
+        >
+          {showLog ? '▲ Ocultar historial' : '▼ Ver historial de movimientos'}
+        </button>
+
+        {showLog && (
+          <div className="mt-3 bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-500 uppercase">Últimos 50 movimientos</span>
+              <button onClick={loadLog} disabled={loadingLog} className="text-xs text-gray-400 hover:text-gray-700">
+                {loadingLog ? 'Cargando…' : '↻ Actualizar'}
+              </button>
+            </div>
+            {loadingLog ? (
+              <p className="px-4 py-4 text-xs text-gray-400">Cargando…</p>
+            ) : log.length === 0 ? (
+              <p className="px-4 py-4 text-xs text-gray-400">Sin movimientos registrados aún.</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-gray-500 font-semibold">Fecha</th>
+                    <th className="px-4 py-2 text-left text-gray-500 font-semibold">Prenda / Talla / Color</th>
+                    <th className="px-4 py-2 text-right text-gray-500 font-semibold">Cambio</th>
+                    <th className="px-4 py-2 text-left text-gray-500 font-semibold">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {log.map((entry) => (
+                    <tr key={entry.id} className="border-t border-gray-50 hover:bg-gray-50">
+                      <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                        {new Date(entry.created_at).toLocaleString('es-CO', {
+                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {garmentLabelFor(entry.garment_type)} · {entry.size} · {entry.color}
+                      </td>
+                      <td className={`px-4 py-2 text-right font-semibold tabular-nums ${entry.change_qty < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {entry.change_qty > 0 ? '+' : ''}{entry.change_qty}
+                      </td>
+                      <td className="px-4 py-2 text-gray-500">
+                        {entry.reason === 'sale' ? '🛍 Venta' : entry.reason === 'manual_set' ? '✏️ Ajuste' : '🗑 Eliminado'}
+                        {entry.order_id && (
+                          <span className="ml-1 text-gray-400">#{entry.order_id.slice(0, 8).toUpperCase()}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
 
       {toast && (
         <div className="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-4 py-3 rounded shadow-lg z-50">
