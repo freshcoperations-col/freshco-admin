@@ -711,8 +711,13 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Color (opcional)</label>
-              <input value={extraImageColor} onChange={(e) => setExtraImageColor(e.target.value)}
-                placeholder="Vainilla" className={`${INPUT} w-28`} />
+              <select value={extraImageColor} onChange={(e) => setExtraImageColor(e.target.value)}
+                className={`${INPUT} w-40`}>
+                <option value="">Todos los colores</option>
+                {colors.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
             <button
               type="button"
