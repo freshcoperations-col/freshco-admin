@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import { useEffect, useRef, useState } from 'react'
 import { ensureNotifyPermission, notify } from '@/lib/notify'
+import { usePermissions } from '@/contexts/PermissionsContext'
+import type { PermissionId } from '@/lib/permissions'
 
 const LS_KEY = 'admin_orders_last_checked'
 
@@ -15,22 +17,33 @@ interface RecentOrder {
   created_at: string
 }
 
-const NAV = [
-  { href: '/', label: 'Inicio', match: (p: string) => p === '/' },
-  { href: '/analytics', label: 'Analíticas', match: (p: string) => p.startsWith('/analytics') },
-  { href: '/orders', label: 'Pedidos', match: (p: string) => p.startsWith('/orders') },
-  { href: '/conversations', label: 'Conversaciones', match: (p: string) => p.startsWith('/conversations') },
-  { href: '/products', label: 'Productos', match: (p: string) => p.startsWith('/products') },
-  { href: '/coupons', label: 'Cupones', match: (p: string) => p.startsWith('/coupons') },
-  { href: '/collections', label: 'Colecciones', match: (p: string) => p.startsWith('/collections') },
-  { href: '/sizes', label: 'Guía de tallas', match: (p: string) => p.startsWith('/sizes') },
-  { href: '/inventory', label: 'Stock global', match: (p: string) => p.startsWith('/inventory') },
-  { href: '/colors', label: 'Colores', match: (p: string) => p.startsWith('/colors') },
+interface NavItem {
+  href: string
+  label: string
+  match: (p: string) => boolean
+  permission?: PermissionId
+  ownerOnly?: boolean
+}
+
+const NAV: NavItem[] = [
+  { href: '/', label: 'Inicio', match: (p) => p === '/' },
+  { href: '/analytics', label: 'Analíticas', match: (p) => p.startsWith('/analytics'), permission: 'analytics_view' },
+  { href: '/orders', label: 'Pedidos', match: (p) => p.startsWith('/orders'), permission: 'orders_view' },
+  { href: '/conversations', label: 'Conversaciones', match: (p) => p.startsWith('/conversations'), permission: 'conversations_view' },
+  { href: '/products', label: 'Productos', match: (p) => p.startsWith('/products'), permission: 'products_view' },
+  { href: '/coupons', label: 'Cupones', match: (p) => p.startsWith('/coupons'), permission: 'coupons_edit' },
+  { href: '/collections', label: 'Colecciones', match: (p) => p.startsWith('/collections'), permission: 'collections_edit' },
+  { href: '/sizes', label: 'Guía de tallas', match: (p) => p.startsWith('/sizes'), permission: 'sizes_edit' },
+  { href: '/inventory', label: 'Stock global', match: (p) => p.startsWith('/inventory'), permission: 'inventory_view' },
+  { href: '/colors', label: 'Colores', match: (p) => p.startsWith('/colors'), permission: 'colors_edit' },
+  { href: '/roles', label: 'Roles', match: (p) => p.startsWith('/roles'), ownerOnly: true },
+  { href: '/users', label: 'Usuarios', match: (p) => p.startsWith('/users'), ownerOnly: true },
 ]
 
 export function AdminSidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname() ?? ''
   const router = useRouter()
+  const { can, isOwner, loading: permLoading } = usePermissions()
   const [email, setEmail] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
   const [showDrop, setShowDrop] = useState(false)
@@ -167,8 +180,12 @@ export function AdminSidebar({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
-      <nav className="flex-1 py-2 text-sm">
-        {NAV.map((item) => {
+      <nav className="flex-1 py-2 text-sm overflow-y-auto">
+        {!permLoading && NAV.filter((item) => {
+          if (item.ownerOnly) return isOwner
+          if (item.permission) return can(item.permission)
+          return true
+        }).map((item) => {
           const active = item.match(pathname)
           return (
             <Link

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { AdminGate } from './AdminGate'
 import { AdminSidebar } from './AdminSidebar'
+import { PermissionsProvider } from '@/contexts/PermissionsContext'
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? ''
@@ -14,6 +15,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminGate>
+    <PermissionsProvider>
       <div className="flex h-screen overflow-hidden bg-gray-50">
         {/* Overlay móvil */}
         {sidebarOpen && (
@@ -50,6 +52,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+    </PermissionsProvider>
     </AdminGate>
   )
 }
