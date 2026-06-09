@@ -16,9 +16,16 @@ interface GarmentType {
   label: string
 }
 
+interface ColorEntry {
+  id: string
+  name: string
+  hex: string
+}
+
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<InventoryEntry[]>([])
   const [garmentTypes, setGarmentTypes] = useState<GarmentType[]>([])
+  const [colorPalette, setColorPalette] = useState<ColorEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -41,9 +48,10 @@ export default function InventoryPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [invRes, gtRes] = await Promise.all([
+    const [invRes, gtRes, colorRes] = await Promise.all([
       botFetch('/api/admin/web/inventory', { method: 'GET' }),
       botFetch('/api/admin/web/size-guide', { method: 'GET' }),
+      botFetch('/api/admin/web/colors', { method: 'GET' }),
     ])
     if (invRes.ok) {
       const body = await invRes.json()
@@ -55,6 +63,10 @@ export default function InventoryPage() {
         id: g.garment_type,
         label: g.label ?? g.garment_type,
       })))
+    }
+    if (colorRes.ok) {
+      const body = await colorRes.json()
+      setColorPalette(body.colors ?? [])
     }
     setLoading(false)
   }, [])
@@ -219,13 +231,34 @@ export default function InventoryPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Color</label>
-            <input
-              value={newColor}
-              onChange={(e) => setNewColor(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addOrUpdate()}
-              placeholder="Vainilla…"
-              className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-900 bg-white"
-            />
+            {colorPalette.length > 0 ? (
+              <div className="flex flex-wrap gap-2 items-center">
+                {colorPalette.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    title={c.name}
+                    onClick={() => setNewColor(c.name)}
+                    style={{
+                      width: 28, height: 28, borderRadius: '50%', background: c.hex,
+                      border: newColor === c.name ? '3px solid #111' : c.hex.toUpperCase() === '#FFFFFF' ? '1px solid #ddd' : '1px solid transparent',
+                      boxShadow: newColor === c.name ? '0 0 0 1px #fff, 0 0 0 3px #111' : '0 1px 3px rgba(0,0,0,0.2)',
+                      cursor: 'pointer', flexShrink: 0,
+                    }}
+                  />
+                ))}
+                {newColor && (
+                  <span className="text-xs text-gray-600 font-medium">{newColor}</span>
+                )}
+              </div>
+            ) : (
+              <input
+                value={newColor}
+                onChange={(e) => setNewColor(e.target.value)}
+                placeholder="Vainilla…"
+                className="w-32 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-900 bg-white"
+              />
+            )}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Cantidad</label>
@@ -294,10 +327,22 @@ export default function InventoryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {Object.entries(byColor).map(([color, colorEntries]) =>
-                      colorEntries.map((entry, idx) => (
+                    {Object.entries(byColor).map(([color, colorEntries]) => {
+                      const colorHex = colorPalette.find((c) => c.name === color)?.hex ?? '#cccccc'
+                      return colorEntries.map((entry, idx) => (
                         <tr key={entry.id} className={entry.quantity === 0 ? 'bg-red-50' : ''}>
-                          <td className="px-4 py-2.5 font-medium text-gray-800">{idx === 0 ? color : ''}</td>
+                          <td className="px-4 py-2.5 font-medium text-gray-800">
+                            {idx === 0 ? (
+                              <div className="flex items-center gap-2">
+                                <div style={{
+                                  width: 18, height: 18, borderRadius: '50%', background: colorHex, flexShrink: 0,
+                                  border: colorHex.toUpperCase() === '#FFFFFF' ? '1px solid #ddd' : 'none',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                }} />
+                                <span>{color}</span>
+                              </div>
+                            ) : ''}
+                          </td>
                           <td className="px-4 py-2.5 text-gray-600">{entry.size}</td>
                           <td className="px-4 py-2.5 text-right">
                             {editId === entry.id ? (
@@ -342,7 +387,7 @@ export default function InventoryPage() {
                           </td>
                         </tr>
                       ))
-                    )}
+                    })}
                   </tbody>
                 </table>
               </div>

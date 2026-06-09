@@ -89,7 +89,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [colors, setColors] = useState<string[]>(
     Array.isArray(initial?.colors) ? (initial.colors as string[]) : [],
   )
-  const [colorDraft, setColorDraft] = useState('')
+  const [colorPalette, setColorPalette] = useState<Array<{ id: string; name: string; hex: string }>>([])
   const [availableSizes, setAvailableSizes] = useState<string[]>(SIZES_BY_TYPE[garmentType] ?? SIZES_SHIRT)
 
   const [material, setMaterial] = useState(String(initial?.material ?? ''))
@@ -170,6 +170,13 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       })
   }, [garmentType])
 
+  useEffect(() => {
+    botFetch('/api/admin/web/colors')
+      .then((r) => r.json())
+      .then((d) => setColorPalette(d.colors ?? []))
+      .catch(() => {})
+  }, [])
+
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(null), 3000)
@@ -184,15 +191,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     setSizes((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
   }
 
-  function addColor() {
-    const c = colorDraft.trim()
-    if (!c || colors.includes(c)) return
-    setColors([...colors, c])
-    setColorDraft('')
-  }
-
-  function removeColor(c: string) {
-    setColors(colors.filter((x) => x !== c))
+  function toggleColor(name: string) {
+    setColors((prev) => prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name])
   }
 
   function toggleCollection(colId: string) {
@@ -376,29 +376,55 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       {/* Colores */}
       <Section title="Colores">
         <p className="text-xs text-gray-400 mb-3">
-          Deja vacío si la prenda es de un solo color / sin variante de color.
+          Selecciona los colores disponibles para esta prenda. Deja vacío si es prenda única sin variantes de color.
+          Para crear nuevos colores ve a <strong>Colores</strong> en el menú lateral.
         </p>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {colors.map((c) => (
-            <span key={c} className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full flex items-center gap-1">
-              {c}
-              <button type="button" onClick={() => removeColor(c)}
-                className="ml-1 text-gray-400 hover:text-red-600">×</button>
-            </span>
-          ))}
-          {colors.length === 0 && (
-            <span className="text-xs text-gray-400 italic">Sin colores (prenda única)</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <input value={colorDraft} onChange={(e) => setColorDraft(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addColor())}
-            className={INPUT} placeholder="Vainilla, Negro, Blanco…" />
-          <button type="button" onClick={addColor}
-            className="px-3 py-2 text-xs border border-gray-300 rounded">
-            Agregar
-          </button>
-        </div>
+        {colorPalette.length === 0 ? (
+          <p className="text-xs text-amber-600">No hay colores creados aún. Ve a <strong>Colores</strong> para crearlos.</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {colorPalette.map((c) => {
+              const selected = colors.includes(c.name)
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleColor(c.name)}
+                  title={c.name}
+                  className="flex flex-col items-center gap-1.5 group"
+                >
+                  <div style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: c.hex,
+                    border: selected
+                      ? '3px solid #111'
+                      : c.hex.toUpperCase() === '#FFFFFF' ? '2px solid #ddd' : '2px solid transparent',
+                    boxShadow: selected ? '0 0 0 1px #fff, 0 0 0 3px #111' : '0 2px 4px rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'box-shadow 0.15s, border 0.15s',
+                    position: 'relative',
+                  }}>
+                    {selected && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`text-xs ${selected ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                    {c.name}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {colors.length === 0 && colorPalette.length > 0 && (
+          <p className="text-xs text-gray-400 italic mt-2">Sin colores → prenda única (no muestra selector en la tienda)</p>
+        )}
       </Section>
 
       {/* Detalles */}
