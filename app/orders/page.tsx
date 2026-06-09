@@ -37,6 +37,7 @@ const STATUS_OPTIONS = [
   { value: '', label: 'Todos' },
   { value: '__pending_ship', label: 'Por despachar' },
   { value: 'pending', label: 'Pago pendiente', kind: 'payment' as const },
+  { value: 'cod', label: 'Contraentrega', kind: 'payment' as const },
   { value: 'approved', label: 'Pagados', kind: 'payment' as const },
   { value: 'declined', label: 'Declinados', kind: 'payment' as const },
   { value: 'enviado', label: 'Enviados', kind: 'order' as const },
@@ -230,6 +231,7 @@ function PaymentBadge({ status }: { status: string }) {
     declined: { label: 'Declinado', cls: 'bg-red-100 text-red-700' },
     voided: { label: 'Anulado', cls: 'bg-gray-100 text-gray-700' },
     error: { label: 'Error', cls: 'bg-red-100 text-red-700' },
+    cod: { label: 'Contraentrega', cls: 'bg-blue-100 text-blue-700' },
   }
   const v = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-700' }
   return <span className={`px-2 py-1 text-xs rounded ${v.cls}`}>{v.label}</span>
