@@ -151,7 +151,7 @@ export default function InventoryPage() {
   const agotados = filtered.filter((e) => e.quantity === 0).length
 
   // Garment types que aparecen en el inventario actual
-  const usedGarments = [...new Set(inventory.map((e) => e.garment_type))]
+  const usedGarments = Array.from(new Set(inventory.map((e) => e.garment_type)))
 
   return (
     <div className="p-6 max-w-3xl">
