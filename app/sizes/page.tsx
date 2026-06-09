@@ -23,6 +23,9 @@ export default function SizesPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [newSize, setNewSize] = useState('')
   const [newMeasLabel, setNewMeasLabel] = useState('')
+  const [newTypeLabel, setNewTypeLabel] = useState('')
+  const [addingType, setAddingType] = useState(false)
+  const [showNewType, setShowNewType] = useState(false)
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -47,6 +50,41 @@ export default function SizesPage() {
     const g = guides.find((x) => x.garment_type === selected)
     if (g) setGuide(JSON.parse(JSON.stringify(g)))  // deep copy
   }, [selected, guides])
+
+  async function createType() {
+    const label = newTypeLabel.trim()
+    if (!label) return
+    setAddingType(true)
+    const res = await botFetch('/api/admin/web/size-guide', {
+      method: 'POST',
+      body: JSON.stringify({ label }),
+    })
+    setAddingType(false)
+    if (res.ok) {
+      const body = await res.json()
+      setNewTypeLabel('')
+      setShowNewType(false)
+      await load()
+      setSelected(body.garment_type?.id ?? '')
+      showToast('Tipo de prenda creado ✅')
+    } else {
+      const b = await res.json().catch(() => ({}))
+      showToast(b.error || 'Error al crear')
+    }
+  }
+
+  async function deleteType(type: string, label: string) {
+    if (!confirm(`¿Eliminar "${label}"? Se borrará también su guía de tallas.`)) return
+    const res = await botFetch(`/api/admin/web/size-guide/${type}`, { method: 'DELETE' })
+    if (res.ok) {
+      showToast('Eliminado')
+      await load()
+      setSelected('')
+      setGuide(null)
+    } else {
+      showToast('Error al eliminar')
+    }
+  }
 
   async function handleSave() {
     if (!guide) return
@@ -125,21 +163,68 @@ export default function SizesPage() {
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar: tipos de prenda */}
-      <div className="w-44 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
-        <div className="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          Tipo de prenda
+      <div className="w-48 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo de prenda</span>
+          <button
+            onClick={() => setShowNewType((v) => !v)}
+            className="text-gray-400 hover:text-gray-900 text-lg leading-none"
+            title="Agregar tipo"
+          >+</button>
         </div>
+
+        {showNewType && (
+          <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
+            <input
+              autoFocus
+              value={newTypeLabel}
+              onChange={(e) => setNewTypeLabel(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && createType()}
+              placeholder="Nombre (ej: Vestidos)"
+              className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-gray-500 mb-1.5"
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={createType}
+                disabled={addingType || !newTypeLabel.trim()}
+                className="flex-1 py-1 text-xs bg-gray-900 text-white rounded disabled:opacity-40"
+              >
+                {addingType ? '…' : 'Crear'}
+              </button>
+              <button
+                onClick={() => { setShowNewType(false); setNewTypeLabel('') }}
+                className="px-2 py-1 text-xs border border-gray-200 rounded"
+              >✕</button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto">
           {guides.map((g) => (
-            <button
+            <div
               key={g.garment_type}
-              onClick={() => setSelected(g.garment_type)}
-              className={`w-full text-left px-4 py-3 text-sm border-b border-gray-100 hover:bg-gray-50 ${
-                selected === g.garment_type ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+              className={`flex items-center border-b border-gray-100 group ${
+                selected === g.garment_type ? 'bg-blue-50' : 'hover:bg-gray-50'
               }`}
             >
-              {g.label}
-            </button>
+              <button
+                onClick={() => setSelected(g.garment_type)}
+                className={`flex-1 text-left px-4 py-3 text-sm ${
+                  selected === g.garment_type ? 'text-blue-700 font-medium' : 'text-gray-700'
+                }`}
+              >
+                {g.label}
+              </button>
+              <button
+                onClick={() => deleteType(g.garment_type, g.label)}
+                className="pr-3 text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Eliminar"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+                </svg>
+              </button>
+            </div>
           ))}
         </div>
       </div>

@@ -59,10 +59,12 @@ export default function InventoryPage() {
     }
     if (gtRes.ok) {
       const body = await gtRes.json()
-      setGarmentTypes((body.guides ?? []).map((g: { garment_type: string; label?: string }) => ({
+      const gts = (body.guides ?? []).map((g: { garment_type: string; label?: string }) => ({
         id: g.garment_type,
         label: g.label ?? g.garment_type,
-      })))
+      }))
+      setGarmentTypes(gts)
+      setNewGarmentType((prev) => prev || gts[0]?.id || '')
     }
     if (colorRes.ok) {
       const body = await colorRes.json()
@@ -133,7 +135,6 @@ export default function InventoryPage() {
   }
 
   function garmentLabel(gt: string) {
-    if (!gt) return 'General'
     return garmentTypes.find((g) => g.id === gt)?.label ?? gt
   }
 
@@ -213,7 +214,7 @@ export default function InventoryPage() {
               onChange={(e) => setNewGarmentType(e.target.value)}
               className="w-36 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-900 bg-white"
             >
-              <option value="">General</option>
+              {garmentTypes.length === 0 && <option value="">Sin tipos</option>}
               {garmentTypes.map((gt) => (
                 <option key={gt.id} value={gt.id}>{gt.label}</option>
               ))}
@@ -280,7 +281,7 @@ export default function InventoryPage() {
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-2">
-          Si ya existe, actualiza la cantidad. "General" aplica a todos los tipos de prenda.
+          Si ya existe para esa prenda + talla + color, actualiza la cantidad.
         </p>
       </div>
 
