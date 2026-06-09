@@ -16,6 +16,7 @@ interface AdminUser {
   role_id: string
   role_name: string
   created_at: string
+  is_env_owner?: boolean
 }
 
 export default function UsersPage() {
@@ -159,41 +160,55 @@ export default function UsersPage() {
 
       {/* Lista de usuarios */}
       {users.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-8">Sin usuarios adicionales. Los admins del sistema no aparecen aquí.</p>
+        <p className="text-sm text-gray-400 text-center py-8">Sin usuarios registrados.</p>
       ) : (
         <div className="border border-gray-200 rounded-xl bg-white divide-y divide-gray-100 overflow-hidden">
           {users.map((user) => (
             <div key={user.id} className="flex items-center gap-3 px-5 py-3">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">{user.email}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-800 truncate">{user.email}</p>
+                  {user.is_env_owner && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                      Propietario
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-400">
-                  Agregado {new Date(user.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {user.is_env_owner
+                    ? 'Configurado vía variable de entorno ADMIN_EMAILS'
+                    : `Agregado ${new Date(user.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                 </p>
               </div>
 
-              {/* Selector de rol inline */}
-              <select
-                className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-400"
-                value={user.role_id}
-                disabled={changing === user.id}
-                onChange={(e) => handleChangeRole(user, e.target.value)}
-              >
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
+              {user.is_env_owner ? (
+                <span className="text-xs text-gray-400 italic">Acceso total</span>
+              ) : (
+                <>
+                  <select
+                    className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    value={user.role_id}
+                    disabled={changing === user.id}
+                    onChange={(e) => handleChangeRole(user, e.target.value)}
+                  >
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
 
-              {changing === user.id && (
-                <span className="text-xs text-gray-400">…</span>
+                  {changing === user.id && (
+                    <span className="text-xs text-gray-400">…</span>
+                  )}
+
+                  <button
+                    onClick={() => handleRemove(user)}
+                    disabled={deleting === user.id}
+                    className="text-xs text-red-500 border border-red-100 px-2.5 py-1 rounded hover:bg-red-50 disabled:opacity-40 whitespace-nowrap"
+                  >
+                    {deleting === user.id ? '…' : 'Revocar'}
+                  </button>
+                </>
               )}
-
-              <button
-                onClick={() => handleRemove(user)}
-                disabled={deleting === user.id}
-                className="text-xs text-red-500 border border-red-100 px-2.5 py-1 rounded hover:bg-red-50 disabled:opacity-40 whitespace-nowrap"
-              >
-                {deleting === user.id ? '…' : 'Revocar'}
-              </button>
             </div>
           ))}
         </div>

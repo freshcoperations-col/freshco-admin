@@ -181,25 +181,32 @@ export function AdminSidebar({ onClose }: { onClose?: () => void }) {
       </div>
 
       <nav className="flex-1 py-2 text-sm overflow-y-auto">
-        {!permLoading && NAV.filter((item) => {
-          if (item.ownerOnly) return isOwner
-          if (item.permission) return can(item.permission)
-          return true
-        }).map((item) => {
-          const active = item.match(pathname)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => { if (item.href === '/orders') markRead(); onClose?.() }}
-              className={`flex items-center px-4 py-3 hover:bg-gray-50 ${
-                active ? 'bg-gray-100 font-semibold' : 'text-gray-700'
-              }`}
-            >
-              {item.label}
-            </Link>
-          )
-        })}
+        {permLoading ? (
+          // Skeleton mientras carga permisos
+          [1,2,3,4,5].map((i) => (
+            <div key={i} className="mx-3 my-1.5 h-8 rounded bg-gray-100 animate-pulse" />
+          ))
+        ) : (
+          NAV.filter((item) => {
+            if (item.ownerOnly) return isOwner
+            if (item.permission) return can(item.permission)
+            return true
+          }).map((item) => {
+            const active = item.match(pathname)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => { if (item.href === '/orders') markRead(); onClose?.() }}
+                className={`flex items-center px-4 py-3 hover:bg-gray-50 ${
+                  active ? 'bg-gray-100 font-semibold' : 'text-gray-700'
+                }`}
+              >
+                {item.label}
+              </Link>
+            )
+          })
+        )}
       </nav>
 
       <div className="border-t border-gray-200 p-3 text-xs text-gray-500">

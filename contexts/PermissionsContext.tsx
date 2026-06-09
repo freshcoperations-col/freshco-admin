@@ -27,10 +27,34 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null)
 
   useEffect(() => {
-    botFetch('/api/admin/web/me')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: MeResponse | null) => { setMe(data); setLoading(false) })
-      .catch(() => setLoading(false))
+    let cancelled = false
+
+    async function load(attempt = 0) {
+      try {
+        const r = await botFetch('/api/admin/web/me')
+        if (cancelled) return
+        if (r.ok) {
+          const data: MeResponse = await r.json()
+          setMe(data)
+          setLoading(false)
+        } else if (r.status === 403 && attempt < 3) {
+          // Sesión aún no lista — reintenta con backoff
+          setTimeout(() => load(attempt + 1), 600 * (attempt + 1))
+        } else {
+          setLoading(false)
+        }
+      } catch {
+        if (cancelled) return
+        if (attempt < 3) {
+          setTimeout(() => load(attempt + 1), 600 * (attempt + 1))
+        } else {
+          setLoading(false)
+        }
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
   }, [])
 
   function can(perm: PermissionId): boolean {
