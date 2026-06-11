@@ -116,8 +116,6 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
   const productId = (initial?.id as string) ?? id ?? slugify(name)
 
-  // model3dExists se activa solo tras subir en esta sesión (sin probe automático)
-
   // sessionStorage key para persistir imágenes borradas entre navegaciones
   function ssKey(color: string, side: string) { return `del:${productId}:${color}:${side}` }
   function wasDeleted(color: string, side: string) {
@@ -176,6 +174,22 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       .then((d) => setColorPalette(d.colors ?? []))
       .catch(() => {})
   }, [])
+
+  // Probar si ya existe un modelo 3D subido para cada color (sin probe automático antes)
+  useEffect(() => {
+    if (!productId || colors.length === 0) return
+    let cancelled = false
+    colors.forEach((color) => {
+      const colorSlug = color.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, '-')
+      const modelFilename = `${productId}-3d-${colorSlug}.glb`
+      const modelUrl = `${STORAGE_BASE}${encodeURIComponent(modelFilename)}`
+      fetch(modelUrl, { method: 'HEAD' })
+        .then((res) => { if (!cancelled) setModel3dExists((prev) => ({ ...prev, [color]: res.ok })) })
+        .catch(() => { if (!cancelled) setModel3dExists((prev) => ({ ...prev, [color]: false })) })
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, colors.join(',')])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -554,6 +568,16 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                 <div key={color} className="border border-gray-200 rounded-lg p-3">
                   <div className="text-sm font-medium mb-2">{color}</div>
                   <div className="text-xs text-gray-400 font-mono mb-2 truncate">{modelFilename}</div>
+                  {modelExistsNow && (
+                    <model-viewer
+                      key={key}
+                      src={`${modelUrl}?t=${key}`}
+                      camera-controls
+                      auto-rotate
+                      shadow-intensity="1"
+                      style={{ width: '100%', height: '180px', borderRadius: '8px', backgroundColor: '#f9f9f9', marginBottom: '8px' }}
+                    />
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"
