@@ -575,7 +575,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                       camera-controls
                       auto-rotate
                       camera-target="0m 0m -4.4017m"
-                      camera-orbit="0deg 75deg 12m"
+                      camera-orbit="0deg 75deg 14m"
                       min-camera-orbit="auto auto 4m"
                       max-camera-orbit="auto auto 18m"
                       field-of-view="30deg"
