@@ -574,6 +574,11 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                       src={`${modelUrl}?t=${key}`}
                       camera-controls
                       auto-rotate
+                      camera-target="0m 0m -4.4017m"
+                      camera-orbit="0deg 75deg 6m"
+                      min-camera-orbit="auto auto 4m"
+                      max-camera-orbit="auto auto 14m"
+                      field-of-view="30deg"
                       shadow-intensity="1"
                       style={{ width: '100%', height: '180px', borderRadius: '8px', backgroundColor: '#f9f9f9', marginBottom: '8px' }}
                     />

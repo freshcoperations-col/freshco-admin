@@ -15,6 +15,11 @@ declare global {
         'tone-mapping'?: string
         'environment-image'?: string
         'skybox-image'?: string
+        'camera-target'?: string
+        'camera-orbit'?: string
+        'min-camera-orbit'?: string
+        'max-camera-orbit'?: string
+        'field-of-view'?: string
       }
     }
   }
