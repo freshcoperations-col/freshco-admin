@@ -27,7 +27,8 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/', label: 'Inicio', match: (p) => p === '/' },
-  { href: '/analytics', label: 'Analíticas', match: (p) => p.startsWith('/analytics'), permission: 'analytics_view' },
+  { href: '/analytics', label: 'Analíticas', match: (p) => p === '/analytics', permission: 'analytics_view' },
+  { href: '/analytics/web', label: 'Tráfico web', match: (p) => p.startsWith('/analytics/web'), permission: 'analytics_view' },
   { href: '/orders', label: 'Pedidos', match: (p) => p.startsWith('/orders'), permission: 'orders_view' },
   { href: '/conversations', label: 'Conversaciones', match: (p) => p.startsWith('/conversations'), permission: 'conversations_view' },
   { href: '/products', label: 'Productos', match: (p) => p.startsWith('/products'), permission: 'products_view' },
