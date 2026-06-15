@@ -99,6 +99,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [model3dKeys, setModel3dKeys] = useState<Record<string, number>>({})
   const [model3dExists, setModel3dExists] = useState<Record<string, boolean>>({})
   const [uploadingModel, setUploadingModel] = useState<Record<string, boolean>>({})
+  const [optimizingModel, setOptimizingModel] = useState<Record<string, boolean>>({})
   const model3dFileRef = useRef<HTMLInputElement>(null)
   const [pendingModel, setPendingModel] = useState<string | null>(null)
 
@@ -601,6 +602,35 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                       >
                         Ver
                       </a>
+                    )}
+                    {modelExistsNow && (
+                      <button
+                        type="button"
+                        title="Comprimir modelo 3D (reduce el tamaño del archivo)"
+                        disabled={optimizingModel[color]}
+                        onClick={async () => {
+                          setOptimizingModel((prev) => ({ ...prev, [color]: true }))
+                          try {
+                            const res = await botFetch(
+                              `/api/admin/web/products/${productId}/optimize-model`,
+                              { method: 'POST', body: JSON.stringify({ color, ext: 'glb' }) },
+                            )
+                            const body = await res.json().catch(() => ({}))
+                            if (!res.ok) throw new Error(body.error || 'Error al comprimir')
+                            const beforeMb = (body.before_size / 1024 / 1024).toFixed(1)
+                            const afterMb = (body.after_size / 1024 / 1024).toFixed(1)
+                            setModel3dKeys((prev) => ({ ...prev, [color]: Date.now() }))
+                            showToast(`Modelo de ${color} comprimido: ${beforeMb}MB → ${afterMb}MB ✅`)
+                          } catch (err) {
+                            showToast(err instanceof Error ? err.message : 'Error de conexión')
+                          } finally {
+                            setOptimizingModel((prev) => ({ ...prev, [color]: false }))
+                          }
+                        }}
+                        className="px-2 py-1.5 text-xs border border-gray-300 rounded text-gray-500 hover:border-gray-500 disabled:opacity-50"
+                      >
+                        {optimizingModel[color] ? 'Comprimiendo…' : '🗜 Comprimir'}
+                      </button>
                     )}
                     {modelExistsNow && (
                       <button
