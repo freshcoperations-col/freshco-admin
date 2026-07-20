@@ -60,7 +60,7 @@ export function OrderDrawer({
 }) {
   const [data, setData] = useState<{ order: Order; recent_messages: Message[] } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [action, setAction] = useState<'idle' | 'ship' | 'update_shipping' | 'deliver' | 'undeliver' | 'cancel' | 'resend' | 'delete_order'>('idle')
+  const [action, setAction] = useState<'idle' | 'ship' | 'update_shipping' | 'deliver' | 'undeliver' | 'cancel' | 'resend' | 'delete_order' | 'approve_payment'>('idle')
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -204,6 +204,14 @@ export function OrderDrawer({
                       </button>
                     </>
                   )}
+                  {data.order.payment_status === 'pending' && (
+                    <button
+                      onClick={() => setAction('approve_payment')}
+                      className="px-4 py-2 text-xs uppercase tracking-wide bg-green-600 text-white rounded"
+                    >
+                      Aprobar pago
+                    </button>
+                  )}
                   {data.order.payment_status === 'pending' && data.order.payment_link_url && (
                     <button
                       onClick={() => setAction('resend')}
@@ -319,6 +327,24 @@ export function OrderDrawer({
                     setToast('Link reenviado al WhatsApp del cliente.')
                     setAction('idle')
                     setTimeout(() => setToast(null), 3000)
+                  }}
+                  working={working}
+                  setWorking={setWorking}
+                />
+              )}
+
+              {action === 'approve_payment' && (
+                <ApprovePaymentForm
+                  order={data.order}
+                  onCancel={() => setAction('idle')}
+                  onDone={() => {
+                    setToast('Pago aprobado manualmente.')
+                    onChanged()
+                    setAction('idle')
+                    setTimeout(() => setToast(null), 3000)
+                    botFetch(`/api/admin/web/orders/${shortId}`, { method: 'GET' })
+                      .then((r) => r.json())
+                      .then(setData)
                   }}
                   working={working}
                   setWorking={setWorking}
@@ -662,6 +688,32 @@ function DeliverForm({
           className="px-3 py-2 text-xs bg-green-600 text-white rounded disabled:opacity-50"
         >
           {working ? 'Marcando…' : 'Confirmar entrega'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ApprovePaymentForm({ order, onCancel, onDone, working, setWorking }: {
+  order: Order; onCancel: () => void; onDone: () => void; working: boolean; setWorking: (b: boolean) => void
+}) {
+  const [err, setErr] = useState<string | null>(null)
+  async function submit() {
+    if (!confirm(`¿Marcar el pago del pedido #${order.short_id} de "${order.customer_name ?? order.customer_phone}" como APROBADO manualmente?`)) return
+    setErr(null); setWorking(true)
+    const res = await botFetch(`/api/admin/web/orders/${order.short_id}/approve-payment`, { method: 'POST' })
+    setWorking(false)
+    if (!res.ok) { const b = await res.json().catch(() => ({})); setErr(b.error || 'No se pudo aprobar.'); return }
+    onDone()
+  }
+  return (
+    <div className="border border-green-200 rounded p-4 bg-green-50">
+      <p className="text-sm mb-3">Usá esto cuando el pago ya fue confirmado fuera de Wompi (transferencia, etc.) o cuando el webhook no actualizó el estado automáticamente.</p>
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+      <div className="flex justify-end gap-2">
+        <button onClick={onCancel} className="px-3 py-2 text-xs border border-gray-300 rounded">Cancelar</button>
+        <button onClick={submit} disabled={working} className="px-3 py-2 text-xs bg-green-600 text-white rounded disabled:opacity-50">
+          {working ? 'Aprobando…' : 'Sí, aprobar pago'}
         </button>
       </div>
     </div>
