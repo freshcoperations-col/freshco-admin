@@ -113,7 +113,7 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
   // Solicitar datos del cliente por WhatsApp
   async function sendInfoRequest() {
     if (!phone) return
-    const message = `Hola 👋 Soy del equipo de *Freshco*. Para procesar tu pedido necesitamos los siguientes datos:\n\n📝 *Nombre completo*\n📍 *Dirección de envío* (calle, número, barrio, ciudad)\n\n¡Muchas gracias! 🙏`
+    const message = `Hola 👋 Soy del equipo de *Freshco*. Para procesar tu pedido necesitamos los siguientes datos:\n\n📝 *Nombre completo*\n📍 *Dirección de envío* (calle, número, barrio, ciudad)\n📧 *Correo electrónico*\n\n¡Muchas gracias! 🙏`
     setSendingInfo(true)
     const res = await botFetch('/api/admin/web/send-whatsapp', {
       method: 'POST',
