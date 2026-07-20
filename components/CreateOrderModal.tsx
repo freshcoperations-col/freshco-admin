@@ -35,6 +35,8 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [sendingInfo, setSendingInfo] = useState(false)
+  const [infoSent, setInfoSent] = useState(false)
   const [error, setError] = useState('')
 
   // Customer
@@ -57,7 +59,6 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // No buscar si ya hay un producto seleccionado
     if (selectedProduct) { setProducts([]); return }
     if (query.length < 2) { setProducts([]); return }
     if (searchRef.current) clearTimeout(searchRef.current)
@@ -77,7 +78,6 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
     setPrice(p.on_sale && p.sale_price ? p.sale_price : p.price)
     setSize(p.sizes?.[0] ?? '')
     setColor(p.colors?.[0] ?? '')
-    // NO ponemos query al nombre — eso causaba re-búsqueda y bloqueaba agregar múltiples productos
     setQuery('')
     setProducts([])
   }
@@ -110,7 +110,25 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
 
   const total = items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
 
-  async function handleSubmit() {
+  // Solicitar datos del cliente por WhatsApp
+  async function sendInfoRequest() {
+    if (!phone) return
+    const message = `Hola 👋 Soy del equipo de *Freshco*. Para procesar tu pedido necesitamos los siguientes datos:\n\n📝 *Nombre completo*\n📍 *Dirección de envío* (calle, número, barrio, ciudad)\n\n¡Muchas gracias! 🙏`
+    setSendingInfo(true)
+    const res = await botFetch('/api/admin/web/send-whatsapp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, message }),
+    })
+    setSendingInfo(false)
+    if (res.ok) {
+      setInfoSent(true)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      alert(body.error ?? 'No se pudo enviar el mensaje.')
+    }
+  }
+
+  async function handleSubmit(withLink: boolean) {
     if (!name || !phone || items.length === 0) {
       setError('Nombre, celular y al menos un producto son requeridos.')
       return
@@ -126,6 +144,7 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
         shipping_address: address || undefined,
         notes: notes || undefined,
         items,
+        generate_link: withLink,
       }),
     })
     setSaving(false)
@@ -149,7 +168,7 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
   }
 
   async function sendViaWhatsApp() {
-    const message = `Hola ${name} 👋 Aquí te comparto el link de pago de tu pedido #${shortId} por $${total.toLocaleString('es-CO')} COP:\n\n${paymentLink}\n\nSolo ábrelo y completa el pago con tu método preferido 💳`
+    const message = `Hola ${name} 👋 Aquí te comparto el link de pago de tu pedido *#${shortId}* por *$${total.toLocaleString('es-CO')} COP*:\n\n${paymentLink}\n\nSolo ábrelo y completa el pago con tu método preferido 💳`
     setSending(true)
     const res = await botFetch('/api/admin/web/send-whatsapp', {
       method: 'POST',
@@ -179,29 +198,34 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
 
         {step === 'done' ? (
           <div className="p-6 space-y-4">
-            <p className="text-sm text-gray-600">
-              Pedido creado con estado <strong>pendiente</strong>. Envía este link al cliente para que pague — el precio ya viene configurado.
+            <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-4 py-3">
+              ✓ Pedido <strong>#{shortId}</strong> creado — total <strong>${total.toLocaleString('es-CO')} COP</strong>
             </p>
-            <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
-              <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Link de pago Wompi</p>
-              <p className="text-xs text-gray-700 break-all">{paymentLink}</p>
-              <button
-                onClick={copyLink}
-                className="px-4 py-2 bg-gray-900 text-white text-xs rounded hover:bg-gray-700 transition"
-              >
-                {copied ? '✓ Copiado' : 'Copiar link'}
-              </button>
-            </div>
-            {paymentLink && (
-              <button
-                onClick={sendViaWhatsApp}
-                disabled={sending || sent}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-60 transition"
-              >
-                {sent ? '✓ Enviado por Conversaciones' : sending ? 'Enviando…' : '📱 Enviar por Conversaciones'}
-              </button>
+
+            {paymentLink ? (
+              <>
+                <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Link de pago Wompi</p>
+                  <p className="text-xs text-gray-700 break-all">{paymentLink}</p>
+                  <button onClick={copyLink} className="px-4 py-2 bg-gray-900 text-white text-xs rounded hover:bg-gray-700 transition">
+                    {copied ? '✓ Copiado' : 'Copiar link'}
+                  </button>
+                </div>
+                <button
+                  onClick={sendViaWhatsApp}
+                  disabled={sending || sent}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-60 transition"
+                >
+                  {sent ? '✓ Enviado por Conversaciones' : sending ? 'Enviando…' : '📱 Enviar por Conversaciones'}
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Pedido registrado sin link de pago. Puedes generarlo más tarde desde el drawer del pedido.
+              </p>
             )}
-            <button onClick={onClose} className="block w-full text-center text-sm text-gray-500 hover:text-gray-800 mt-2">
+
+            <button onClick={onClose} className="block w-full text-center text-sm text-gray-500 hover:text-gray-800 pt-2">
               Cerrar
             </button>
           </div>
@@ -217,7 +241,24 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Celular *</label>
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+573001234567" className="w-full px-3 py-2 text-sm border border-gray-300 rounded" />
+                  <div className="flex gap-2">
+                    <input
+                      value={phone}
+                      onChange={(e) => { setPhone(e.target.value); setInfoSent(false) }}
+                      placeholder="+573001234567"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded"
+                    />
+                    {phone.length > 5 && (
+                      <button
+                        onClick={sendInfoRequest}
+                        disabled={sendingInfo || infoSent}
+                        title="Enviar mensaje por WhatsApp pidiendo nombre y dirección"
+                        className="px-3 py-2 text-xs bg-amber-50 border border-amber-300 text-amber-700 rounded hover:bg-amber-100 disabled:opacity-60 transition whitespace-nowrap"
+                      >
+                        {infoSent ? '✓ Solicitado' : sendingInfo ? '…' : '📋 Pedir datos'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Email</label>
@@ -240,17 +281,12 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
 
               {selectedProduct ? (
                 <>
-                  {/* Producto seleccionado */}
                   <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border rounded mb-3">
                     <span className="text-sm font-medium">{selectedProduct.name}</span>
-                    <button
-                      onClick={clearSelectedProduct}
-                      className="text-xs text-gray-400 hover:text-gray-700 ml-4 shrink-0"
-                    >
+                    <button onClick={clearSelectedProduct} className="text-xs text-gray-400 hover:text-gray-700 ml-4 shrink-0">
                       ✕ Cambiar
                     </button>
                   </div>
-
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
                       <div>
@@ -277,13 +313,11 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
                       <input type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded" />
                     </div>
                   </div>
-
                   <button onClick={addItem} className="px-4 py-2 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 transition">
                     + Agregar al pedido
                   </button>
                 </>
               ) : (
-                /* Búsqueda de producto */
                 <div className="relative">
                   <input
                     value={query}
@@ -296,11 +330,7 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
                   {products.length > 0 && (
                     <ul className="absolute z-10 bg-white border border-gray-200 rounded shadow-lg w-full mt-1 max-h-48 overflow-y-auto">
                       {products.map((p) => (
-                        <li
-                          key={p.id}
-                          className="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer flex justify-between"
-                          onClick={() => selectProduct(p)}
-                        >
+                        <li key={p.id} className="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer flex justify-between" onClick={() => selectProduct(p)}>
                           <span>{p.name}</span>
                           <span className="text-gray-400">${(p.on_sale && p.sale_price ? p.sale_price : p.price).toLocaleString('es-CO')}</span>
                         </li>
@@ -311,7 +341,7 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
               )}
             </section>
 
-            {/* Items del pedido */}
+            {/* Items */}
             {items.length > 0 && (
               <section>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Productos en el pedido</p>
@@ -360,11 +390,18 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
                 Cancelar
               </button>
               <button
-                onClick={handleSubmit}
+                onClick={() => handleSubmit(false)}
+                disabled={saving || items.length === 0}
+                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 transition"
+              >
+                {saving ? 'Creando…' : 'Solo crear pedido'}
+              </button>
+              <button
+                onClick={() => handleSubmit(true)}
                 disabled={saving || items.length === 0}
                 className="px-5 py-2 text-sm bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 transition"
               >
-                {saving ? 'Creando…' : 'Crear pedido y generar link'}
+                {saving ? 'Creando…' : 'Crear y generar link'}
               </button>
             </div>
           </div>
