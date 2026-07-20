@@ -14,6 +14,15 @@ interface InventoryEntry {
 interface GarmentType {
   id: string
   label: string
+  sizes: string[]
+}
+
+const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL',
+  '28', '30', '32', '34', '36', '38', '40', '42', '44', '46']
+
+function sizeRank(s: string) {
+  const i = SIZE_ORDER.indexOf(s.toUpperCase())
+  return i === -1 ? 999 : i
 }
 
 interface ColorEntry {
@@ -73,9 +82,10 @@ export default function InventoryPage() {
     }
     if (gtRes.ok) {
       const body = await gtRes.json()
-      const gts = (body.guides ?? []).map((g: { garment_type: string; label?: string }) => ({
+      const gts = (body.guides ?? []).map((g: { garment_type: string; label?: string; sizes?: string[] }) => ({
         id: g.garment_type,
         label: g.label ?? g.garment_type,
+        sizes: (g.sizes ?? []).slice().sort((a, b) => sizeRank(a) - sizeRank(b)),
       }))
       setGarmentTypes(gts)
       setNewGarmentType((prev) => prev || gts[0]?.id || '')
@@ -245,7 +255,7 @@ export default function InventoryPage() {
             <label className="block text-xs text-gray-500 mb-1">Prenda</label>
             <select
               value={newGarmentType}
-              onChange={(e) => setNewGarmentType(e.target.value)}
+              onChange={(e) => { setNewGarmentType(e.target.value); setNewSize('') }}
               className="w-36 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-900 bg-white"
             >
               {garmentTypes.length === 0 && <option value="">Sin tipos</option>}
@@ -256,13 +266,29 @@ export default function InventoryPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Talla</label>
-            <input
-              value={newSize}
-              onChange={(e) => setNewSize(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addOrUpdate()}
-              placeholder="S, M, 28…"
-              className="w-20 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-900 bg-white"
-            />
+            {(() => {
+              const sizesForGarment = garmentTypes.find((g) => g.id === newGarmentType)?.sizes ?? []
+              return sizesForGarment.length > 0 ? (
+                <select
+                  value={newSize}
+                  onChange={(e) => setNewSize(e.target.value)}
+                  className="w-28 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-900 bg-white"
+                >
+                  <option value="">— Talla —</option>
+                  {sizesForGarment.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={newSize}
+                  onChange={(e) => setNewSize(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addOrUpdate()}
+                  placeholder="S, M…"
+                  className="w-20 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-900 bg-white"
+                />
+              )
+            })()}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Color</label>
@@ -364,7 +390,7 @@ export default function InventoryPage() {
                   <tbody className="divide-y divide-gray-100">
                     {Object.entries(byColor).map(([color, colorEntries]) => {
                       const colorHex = colorPalette.find((c) => c.name === color)?.hex ?? '#cccccc'
-                      return colorEntries.map((entry, idx) => (
+                      return [...colorEntries].sort((a, b) => sizeRank(a.size) - sizeRank(b.size)).map((entry, idx) => (
                         <tr key={entry.id} className={entry.quantity === 0 ? 'bg-red-50' : ''}>
                           <td className="px-4 py-2.5 font-medium text-gray-800">
                             {idx === 0 ? (
