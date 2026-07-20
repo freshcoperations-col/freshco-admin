@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { botFetch } from '@/lib/api'
 import { OrderDrawer } from '@/components/OrderDrawer'
 import { CreateOrderModal } from '@/components/CreateOrderModal'
+import { CreatePaymentLinkModal } from '@/components/CreatePaymentLinkModal'
 
 interface OrderItem {
   product_id?: string
@@ -56,6 +57,7 @@ function OrdersPageInner() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -136,6 +138,12 @@ function OrdersPageInner() {
           className="px-4 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded hover:bg-blue-700 transition"
         >
           + Nuevo pedido
+        </button>
+        <button
+          onClick={() => setShowPaymentLinkModal(true)}
+          className="px-4 py-2 text-xs uppercase tracking-wide bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
+        >
+          🔗 Link de pago
         </button>
       </div>
 
@@ -233,6 +241,13 @@ function OrdersPageInner() {
       {showCreateModal && (
         <CreateOrderModal
           onClose={() => setShowCreateModal(false)}
+          onCreated={load}
+        />
+      )}
+
+      {showPaymentLinkModal && (
+        <CreatePaymentLinkModal
+          onClose={() => setShowPaymentLinkModal(false)}
           onCreated={load}
         />
       )}

@@ -11,7 +11,6 @@ interface Product {
   on_sale?: boolean
   sizes?: string[]
   colors?: string[]
-  stock?: number
 }
 
 interface LineItem {
@@ -56,6 +55,8 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    // No buscar si ya hay un producto seleccionado
+    if (selectedProduct) { setProducts([]); return }
     if (query.length < 2) { setProducts([]); return }
     if (searchRef.current) clearTimeout(searchRef.current)
     searchRef.current = setTimeout(async () => {
@@ -67,34 +68,38 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
       }
       setSearching(false)
     }, 350)
-  }, [query])
+  }, [query, selectedProduct])
 
   function selectProduct(p: Product) {
     setSelectedProduct(p)
     setPrice(p.on_sale && p.sale_price ? p.sale_price : p.price)
     setSize(p.sizes?.[0] ?? '')
     setColor(p.colors?.[0] ?? '')
-    setQuery(p.name)
+    // NO ponemos query al nombre — eso causaba re-búsqueda y bloqueaba agregar múltiples productos
+    setQuery('')
     setProducts([])
   }
 
-  function addItem() {
-    if (!selectedProduct) return
-    const item: LineItem = {
-      product_id: selectedProduct.id,
-      product_name: selectedProduct.name,
-      size,
-      color,
-      quantity: qty,
-      unit_price: price,
-    }
-    setItems((prev) => [...prev, item])
+  function clearSelectedProduct() {
     setSelectedProduct(null)
     setQuery('')
     setSize('')
     setColor('')
     setQty(1)
     setPrice(0)
+  }
+
+  function addItem() {
+    if (!selectedProduct) return
+    setItems((prev) => [...prev, {
+      product_id: selectedProduct.id,
+      product_name: selectedProduct.name,
+      size,
+      color,
+      quantity: qty,
+      unit_price: price,
+    }])
+    clearSelectedProduct()
   }
 
   function removeItem(idx: number) {
@@ -112,7 +117,14 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
     setSaving(true)
     const res = await botFetch('/api/admin/web/orders/create-manual', {
       method: 'POST',
-      body: JSON.stringify({ customer_name: name, customer_phone: phone, customer_email: email || undefined, shipping_address: address || undefined, notes: notes || undefined, items }),
+      body: JSON.stringify({
+        customer_name: name,
+        customer_phone: phone,
+        customer_email: email || undefined,
+        shipping_address: address || undefined,
+        notes: notes || undefined,
+        items,
+      }),
     })
     setSaving(false)
     if (!res.ok) {
@@ -140,7 +152,6 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
         className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-base font-semibold">
             {step === 'form' ? 'Nuevo pedido manual' : `Pedido #${shortId} creado`}
@@ -151,7 +162,7 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
         {step === 'done' ? (
           <div className="p-6 space-y-4">
             <p className="text-sm text-gray-600">
-              El pedido fue creado con estado <strong>pendiente</strong>. Envía este link al cliente para que pague — el precio ya viene configurado.
+              Pedido creado con estado <strong>pendiente</strong>. Envía este link al cliente para que pague — el precio ya viene configurado.
             </p>
             <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
               <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Link de pago Wompi</p>
@@ -165,7 +176,7 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
             </div>
             {paymentLink && (
               <a
-                href={`https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${name} 👋 Aquí te comparto el link de pago de tu pedido #${shortId} por $${total.toLocaleString('es-CO')} COP:\n\n${paymentLink}\n\nSolo ábrelo y completa el pago con tu método preferido 💳`)}`}
+                href={`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${name} 👋 Aquí te comparto el link de pago de tu pedido #${shortId} por $${total.toLocaleString('es-CO')} COP:\n\n${paymentLink}\n\nSolo ábrelo y completa el pago con tu método preferido 💳`)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition"
@@ -209,59 +220,77 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
             {/* Agregar producto */}
             <section>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Agregar producto</p>
-              <div className="relative mb-3">
-                <input
-                  value={query}
-                  onChange={(e) => { setQuery(e.target.value); setSelectedProduct(null) }}
-                  placeholder="Buscar producto por nombre…"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
-                />
-                {searching && <p className="text-xs text-gray-400 mt-1">Buscando…</p>}
-                {products.length > 0 && (
-                  <ul className="absolute z-10 bg-white border border-gray-200 rounded shadow-lg w-full mt-1 max-h-48 overflow-y-auto">
-                    {products.map((p) => (
-                      <li key={p.id} className="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer flex justify-between" onClick={() => selectProduct(p)}>
-                        <span>{p.name}</span>
-                        <span className="text-gray-400">${(p.on_sale && p.sale_price ? p.sale_price : p.price).toLocaleString('es-CO')}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
 
-              {selectedProduct && (
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Talla</label>
-                      <select value={size} onChange={(e) => setSize(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded">
-                        {selectedProduct.sizes.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  {selectedProduct.colors && selectedProduct.colors.length > 0 && (
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Color</label>
-                      <select value={color} onChange={(e) => setColor(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded">
-                        {selectedProduct.colors.map((c) => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Cantidad</label>
-                    <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded" />
+              {selectedProduct ? (
+                <>
+                  {/* Producto seleccionado */}
+                  <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border rounded mb-3">
+                    <span className="text-sm font-medium">{selectedProduct.name}</span>
+                    <button
+                      onClick={clearSelectedProduct}
+                      className="text-xs text-gray-400 hover:text-gray-700 ml-4 shrink-0"
+                    >
+                      ✕ Cambiar
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Precio unitario (COP)</label>
-                    <input type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded" />
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Talla</label>
+                        <select value={size} onChange={(e) => setSize(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded">
+                          {selectedProduct.sizes.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    {selectedProduct.colors && selectedProduct.colors.length > 0 && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Color</label>
+                        <select value={color} onChange={(e) => setColor(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded">
+                          {selectedProduct.colors.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Cantidad</label>
+                      <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Precio unitario (COP)</label>
+                      <input type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded" />
+                    </div>
                   </div>
+
+                  <button onClick={addItem} className="px-4 py-2 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 transition">
+                    + Agregar al pedido
+                  </button>
+                </>
+              ) : (
+                /* Búsqueda de producto */
+                <div className="relative">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Buscar producto por nombre…"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    autoComplete="off"
+                  />
+                  {searching && <p className="text-xs text-gray-400 mt-1">Buscando…</p>}
+                  {products.length > 0 && (
+                    <ul className="absolute z-10 bg-white border border-gray-200 rounded shadow-lg w-full mt-1 max-h-48 overflow-y-auto">
+                      {products.map((p) => (
+                        <li
+                          key={p.id}
+                          className="px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer flex justify-between"
+                          onClick={() => selectProduct(p)}
+                        >
+                          <span>{p.name}</span>
+                          <span className="text-gray-400">${(p.on_sale && p.sale_price ? p.sale_price : p.price).toLocaleString('es-CO')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              )}
-
-              {selectedProduct && (
-                <button onClick={addItem} className="px-4 py-2 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 transition">
-                  + Agregar al pedido
-                </button>
               )}
             </section>
 
