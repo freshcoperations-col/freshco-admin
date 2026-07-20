@@ -33,6 +33,8 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
   const [shortId, setShortId] = useState('')
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
   // Customer
@@ -146,6 +148,22 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
     })
   }
 
+  async function sendViaWhatsApp() {
+    const message = `Hola ${name} 👋 Aquí te comparto el link de pago de tu pedido #${shortId} por $${total.toLocaleString('es-CO')} COP:\n\n${paymentLink}\n\nSolo ábrelo y completa el pago con tu método preferido 💳`
+    setSending(true)
+    const res = await botFetch('/api/admin/web/send-whatsapp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, message }),
+    })
+    setSending(false)
+    if (res.ok) {
+      setSent(true)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      alert(body.error ?? 'No se pudo enviar el mensaje.')
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
@@ -175,14 +193,13 @@ export function CreateOrderModal({ onClose, onCreated }: Props) {
               </button>
             </div>
             {paymentLink && (
-              <a
-                href={`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${name} 👋 Aquí te comparto el link de pago de tu pedido #${shortId} por $${total.toLocaleString('es-CO')} COP:\n\n${paymentLink}\n\nSolo ábrelo y completa el pago con tu método preferido 💳`)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition"
+              <button
+                onClick={sendViaWhatsApp}
+                disabled={sending || sent}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-60 transition"
               >
-                📱 Enviar por WhatsApp
-              </a>
+                {sent ? '✓ Enviado por Conversaciones' : sending ? 'Enviando…' : '📱 Enviar por Conversaciones'}
+              </button>
             )}
             <button onClick={onClose} className="block w-full text-center text-sm text-gray-500 hover:text-gray-800 mt-2">
               Cerrar
