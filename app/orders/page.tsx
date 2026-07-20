@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { botFetch } from '@/lib/api'
 import { OrderDrawer } from '@/components/OrderDrawer'
+import { CreateOrderModal } from '@/components/CreateOrderModal'
 
 interface OrderItem {
   product_id?: string
@@ -54,6 +55,7 @@ function OrdersPageInner() {
   const [filter, setFilter] = useState(initial)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -128,6 +130,12 @@ function OrdersPageInner() {
           className="px-4 py-2 text-xs uppercase tracking-wide bg-gray-900 text-white rounded"
         >
           Refrescar
+        </button>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 text-xs uppercase tracking-wide bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+        >
+          + Nuevo pedido
         </button>
       </div>
 
@@ -221,6 +229,13 @@ function OrdersPageInner() {
         onClose={() => setSelected(null)}
         onChanged={load}
       />
+
+      {showCreateModal && (
+        <CreateOrderModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={load}
+        />
+      )}
     </div>
   )
 }
