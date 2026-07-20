@@ -80,6 +80,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   )
   const [price, setPrice] = useState(String(initial?.price ?? ''))
   const [salePrice, setSalePrice] = useState(String(initial?.sale_price ?? ''))
+  const [stock, setStock] = useState(String(initial?.stock ?? '0'))
   const [onSale, setOnSale] = useState(Boolean(initial?.on_sale))
   const [available, setAvailable] = useState(initial?.available !== false)
   const [featured, setFeatured] = useState(Boolean(initial?.featured))
@@ -239,6 +240,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       available,
       featured,
       free_shipping: freeShipping,
+      stock: stock !== '' ? Number(stock) : undefined,
     }
 
     try {
@@ -346,7 +348,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
       {/* Precio y stock */}
       <Section title="Precio y stock">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <Field label="Precio (COP)">
             <input type="number" value={price} onChange={(e) => setPrice(e.target.value)}
               className={INPUT} placeholder="90000" />
@@ -354,6 +356,10 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
           <Field label="Precio de oferta (COP)">
             <input type="number" value={salePrice} onChange={(e) => setSalePrice(e.target.value)}
               className={INPUT} placeholder="70000" />
+          </Field>
+          <Field label="Stock (unidades)">
+            <input type="number" min="0" value={stock} onChange={(e) => setStock(e.target.value)}
+              className={INPUT} placeholder="0" />
           </Field>
         </div>
         <Field label="Estado">
