@@ -384,6 +384,9 @@ export default function ProductsPage() {
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       <button onClick={() => setEditing(p)} className="px-2 py-1 text-xs border border-gray-300 rounded">Tags</button>
+                      <button onClick={() => router.push(`/products/new?from=${p.id}`)}
+                        className="px-2 py-1 text-xs border border-gray-300 rounded"
+                        title="Crear un producto nuevo con estos mismos valores">Duplicar</button>
                       <button onClick={() => toggleAvailable(p)} className="px-2 py-1 text-xs border border-gray-300 rounded">
                         {p.available ? 'Ocultar' : 'Mostrar'}
                       </button>
@@ -461,6 +464,8 @@ export default function ProductsPage() {
             <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => setEditing(p)}
                 className="flex-1 py-1.5 text-xs border border-gray-300 rounded text-center">Tags</button>
+              <button onClick={() => router.push(`/products/new?from=${p.id}`)}
+                className="flex-1 py-1.5 text-xs border border-gray-300 rounded text-center">Duplicar</button>
               <button onClick={() => toggleAvailable(p)}
                 className="flex-1 py-1.5 text-xs border border-gray-300 rounded text-center">
                 {p.available ? 'Ocultar' : 'Mostrar'}

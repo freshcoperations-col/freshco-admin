@@ -37,6 +37,7 @@ const NAV: NavItem[] = [
   { href: '/sizes', label: 'Guía de tallas', match: (p) => p.startsWith('/sizes'), permission: 'sizes_edit' },
   { href: '/inventory', label: 'Stock global', match: (p) => p.startsWith('/inventory'), permission: 'inventory_view' },
   { href: '/colors', label: 'Colores', match: (p) => p.startsWith('/colors'), permission: 'colors_edit' },
+  { href: '/presets', label: 'Presets', match: (p) => p.startsWith('/presets'), permission: 'presets_edit' },
   { href: '/roles', label: 'Roles', match: (p) => p.startsWith('/roles'), ownerOnly: true },
   { href: '/users', label: 'Usuarios', match: (p) => p.startsWith('/users'), ownerOnly: true },
 ]

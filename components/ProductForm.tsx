@@ -3,6 +3,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { botFetch } from '@/lib/api'
 import { uploadProductImage } from '@/lib/upload'
+import { PresetChips, DiscountChips } from '@/components/PresetChips'
+import { usePermissions } from '@/contexts/PermissionsContext'
+import {
+  fetchPresets,
+  applyDiscount,
+  defaultValue,
+  formatCop,
+  EMPTY_PRESETS,
+  type PresetsDoc,
+  type Plantilla,
+} from '@/lib/presets'
 
 interface GarmentType { id: string; label: string }
 interface Collection { id: string; label: string }
@@ -41,6 +52,12 @@ interface ProductFormProps {
   collections: Collection[]
   onSaved: (id: string) => void
   onDeleted?: () => void
+  /**
+   * Id del producto original cuando estamos duplicando. El formulario se
+   * comporta como "nuevo" (initial trae los valores precargados pero sin
+   * id ni imágenes) y al guardar clona las imágenes del original.
+   */
+  duplicateFrom?: string
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -67,11 +84,15 @@ function imageUrl(productId: string, color: string, side: 'frente' | 'detras'): 
   return `${STORAGE_BASE}${encodeURIComponent(`${productId}-${prefix}-${slugifyColor(color)}.png`)}`
 }
 
-export function ProductForm({ initial, garmentTypes, collections, onSaved, onDeleted }: ProductFormProps) {
-  const isNew = !initial
+export function ProductForm({ initial, garmentTypes, collections, onSaved, onDeleted, duplicateFrom }: ProductFormProps) {
+  const isDuplicate = !!duplicateFrom
+  const isNew = !initial || isDuplicate
+  const { can } = usePermissions()
 
   const [name, setName] = useState(String(initial?.name ?? ''))
-  const [id, setId] = useState(String(initial?.id ?? ''))
+  const [id, setId] = useState(() =>
+    String(initial?.id ?? (initial?.name ? slugify(String(initial.name)) : '')),
+  )
   const [idManual, setIdManual] = useState(!isNew)
   const [description, setDescription] = useState(String(initial?.description ?? ''))
   const [garmentType, setGarmentType] = useState(String(initial?.garment_type ?? garmentTypes[0]?.id ?? ''))
@@ -111,6 +132,11 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [extraImageColor, setExtraImageColor] = useState('')
   const [uploadingExtra, setUploadingExtra] = useState(false)
   const extraFileRef = useRef<HTMLInputElement>(null)
+  const [presets, setPresets] = useState<PresetsDoc>(EMPTY_PRESETS)
+  // Se marca en cuanto el usuario cambia algún campo que una plantilla
+  // sobrescribiría — sirve para pedir confirmación antes de reemplazarlos.
+  const [touched, setTouched] = useState(false)
+
   const [saving, setSaving] = useState(false)
   const [deletingProduct, setDeletingProduct] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -198,16 +224,56 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     setTimeout(() => setToast(null), 3000)
   }
 
+  // Carga única de presets al abrir el formulario. En un producto nuevo
+  // desde cero, los valores marcados como default se escriben en el input
+  // (valor real, no placeholder). Al duplicar o editar no se pisa nada.
+  useEffect(() => {
+    let cancelled = false
+    fetchPresets().then((doc) => {
+      if (cancelled) return
+      setPresets(doc)
+      if (!isNew || isDuplicate) return
+      setMaterial((prev) => prev || defaultValue(doc.materiales))
+      setPrintingMethod((prev) => prev || defaultValue(doc.metodos_impresion))
+      setPrice((prev) => prev || defaultValue(doc.precios))
+      setSalePrice((prev) => prev || defaultValue(doc.precios_oferta))
+    })
+    return () => { cancelled = true }
+  }, [isNew, isDuplicate])
+
+  // Rellena de golpe los campos de una plantilla. Nombre, slug y descripción
+  // nunca se tocan.
+  function applyTemplate(t: Plantilla) {
+    if (touched && !confirm('Se reemplazarán los valores actuales excepto nombre y descripción. ¿Continuar?')) {
+      return
+    }
+    if (t.garment_type) setGarmentType(t.garment_type)
+    if (t.price != null) setPrice(String(t.price))
+    setSalePrice(t.sale_price != null ? String(t.sale_price) : '')
+    setOnSale(!!t.on_sale)
+    setAvailable(t.available !== false)
+    setFeatured(!!t.featured)
+    setFreeShipping(!!t.free_shipping)
+    if (Array.isArray(t.sizes)) setSizes(t.sizes)
+    if (Array.isArray(t.colors)) setColors(t.colors)
+    setMaterial(t.material ?? '')
+    setPrintingMethod(t.printing_method ?? '')
+    setTouched(false)
+    showToast(`Plantilla "${t.nombre}" aplicada`)
+  }
+
   function handleNameChange(v: string) {
     setName(v)
     if (!idManual) setId(slugify(v))
   }
 
   function toggleSize(s: string) {
+    setTouched(true)
     setSizes((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
   }
 
   function toggleColor(name: string) {
+    setTouched(true)
     setColors((prev) => prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name])
   }
 
@@ -241,6 +307,12 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       featured,
       free_shipping: freeShipping,
       stock: stock !== '' ? Number(stock) : undefined,
+      // Campos que el formulario no edita pero que sí hay que arrastrar al
+      // duplicar, o el producto nuevo nacería como 'unisex' y sin etiquetas.
+      ...(isDuplicate && {
+        audience: initial?.audience,
+        visual_tags: initial?.visual_tags,
+      }),
     }
 
     try {
@@ -251,9 +323,29 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       const resBody = await res.json().catch(() => ({}))
       if (!res.ok) { setError(resBody.error || 'No se pudo guardar.'); return }
 
-      const savedId = resBody.product?.id ?? initial?.id ?? id
-      showToast(isNew ? 'Producto creado ✅' : 'Producto actualizado ✅')
-      setTimeout(() => onSaved(savedId as string), 800)
+      const savedId = (resBody.product?.id ?? initial?.id ?? id) as string
+
+      // Duplicado: las imágenes se copian una vez que el producto nuevo
+      // existe, porque los archivos en Storage se nombran con su slug.
+      if (isDuplicate && duplicateFrom) {
+        showToast('Producto creado — copiando imágenes…')
+        try {
+          const copyRes = await botFetch(`/api/admin/web/products/${savedId}/copy-images`, {
+            method: 'POST',
+            body: JSON.stringify({ source_id: duplicateFrom }),
+          })
+          if (!copyRes.ok) {
+            const b = await copyRes.json().catch(() => ({}))
+            showToast(`Producto creado, pero las imágenes no se copiaron: ${b.error ?? 'error'}`)
+          }
+        } catch {
+          showToast('Producto creado, pero las imágenes no se copiaron.')
+        }
+      } else {
+        showToast(isNew ? 'Producto creado ✅' : 'Producto actualizado ✅')
+      }
+
+      setTimeout(() => onSaved(savedId), 800)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error de conexión. Intenta de nuevo.')
     } finally {
@@ -298,6 +390,25 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
   return (
     <div className="space-y-8">
+      {/* Plantillas — solo al crear, nunca al editar un producto existente */}
+      {isNew && presets.plantillas.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-gray-200">
+          <span className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+            Empezar desde:
+          </span>
+          {presets.plantillas.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => applyTemplate(t)}
+              className="px-3 py-1.5 text-xs rounded-full border border-gray-300 text-gray-700 hover:border-gray-900 hover:bg-gray-50 transition-colors"
+            >
+              {t.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Info básica */}
       <Section title="Información básica">
         <Field label="Nombre">
@@ -327,7 +438,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       {/* Clasificación */}
       <Section title="Clasificación">
         <Field label="Tipo de prenda">
-          <select value={garmentType} onChange={(e) => setGarmentType(e.target.value)} className={INPUT}>
+          <select value={garmentType}
+            onChange={(e) => { setTouched(true); setGarmentType(e.target.value) }} className={INPUT}>
             {garmentTypes.map((gt) => <option key={gt.id} value={gt.id}>{gt.label}</option>)}
           </select>
         </Field>
@@ -348,14 +460,35 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
 
       {/* Precio y stock */}
       <Section title="Precio y stock">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4 items-start">
           <Field label="Precio (COP)">
-            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)}
+            <input type="number" value={price}
+              onChange={(e) => { setTouched(true); setPrice(e.target.value) }}
               className={INPUT} placeholder="90000" />
+            <PresetChips
+              values={presets.precios}
+              current={price}
+              onPick={(v) => { setTouched(true); setPrice(v) }}
+              format={formatCop}
+            />
           </Field>
           <Field label="Precio de oferta (COP)">
-            <input type="number" value={salePrice} onChange={(e) => setSalePrice(e.target.value)}
+            <input type="number" value={salePrice}
+              onChange={(e) => { setTouched(true); setSalePrice(e.target.value) }}
               className={INPUT} placeholder="70000" />
+            <PresetChips
+              values={presets.precios_oferta}
+              current={salePrice}
+              onPick={(v) => { setTouched(true); setSalePrice(v) }}
+              format={formatCop}
+            />
+            <DiscountChips
+              values={presets.descuentos}
+              basePrice={price}
+              currentSalePrice={salePrice}
+              onPick={(v) => { setTouched(true); setSalePrice(v) }}
+              compute={applyDiscount}
+            />
           </Field>
           <Field label="Stock (unidades)">
             <input type="number" min="0" value={stock} onChange={(e) => setStock(e.target.value)}
@@ -451,12 +584,30 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       {/* Detalles */}
       <Section title="Detalles de fabricación">
         <Field label="Material">
-          <input value={material} onChange={(e) => setMaterial(e.target.value)}
+          <input value={material}
+            onChange={(e) => { setTouched(true); setMaterial(e.target.value) }}
             className={INPUT} placeholder="100% algodón" />
+          <PresetChips
+            values={presets.materiales}
+            current={material}
+            onPick={(v) => { setTouched(true); setMaterial(v) }}
+            quickSaveList="materiales"
+            onPresetsChanged={setPresets}
+            canEditPresets={can('presets_edit')}
+          />
         </Field>
         <Field label="Método de impresión">
-          <input value={printingMethod} onChange={(e) => setPrintingMethod(e.target.value)}
+          <input value={printingMethod}
+            onChange={(e) => { setTouched(true); setPrintingMethod(e.target.value) }}
             className={INPUT} placeholder="DTF" />
+          <PresetChips
+            values={presets.metodos_impresion}
+            current={printingMethod}
+            onPick={(v) => { setTouched(true); setPrintingMethod(v) }}
+            quickSaveList="metodos_impresion"
+            onPresetsChanged={setPresets}
+            canEditPresets={can('presets_edit')}
+          />
         </Field>
       </Section>
 
