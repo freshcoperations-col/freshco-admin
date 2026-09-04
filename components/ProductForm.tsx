@@ -256,8 +256,10 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     setFreeShipping(!!t.free_shipping)
     if (Array.isArray(t.sizes)) setSizes(t.sizes)
     if (Array.isArray(t.colors)) setColors(t.colors)
-    setMaterial(t.material ?? '')
-    setPrintingMethod(t.printing_method ?? '')
+    // Un campo vacío en la plantilla significa "no lo define", no "bórralo":
+    // así una plantilla sin material no pisa el default del formulario.
+    if (t.material) setMaterial(t.material)
+    if (t.printing_method) setPrintingMethod(t.printing_method)
     setTouched(false)
     showToast(`Plantilla "${t.nombre}" aplicada`)
   }
