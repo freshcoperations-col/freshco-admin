@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { botFetch } from '@/lib/api'
 import { usePermissions } from '@/contexts/PermissionsContext'
-import { PresetChips, DiscountChips } from '@/components/PresetChips'
+import { PresetSelect } from '@/components/PresetSelect'
 import {
   EMPTY_PRESETS,
   applyDiscount,
@@ -265,6 +265,26 @@ const SIZES_BY_TYPE: Record<string, string[]> = {
   pantalones: ['28', '30', '32', '34', '36', '38'],
 }
 
+// Los descuentos no son valores fijos sino un cálculo sobre el precio base,
+// así que van como grupo al final del desplegable de precio de oferta.
+function discountGroup(descuentos: PresetValue[], basePrice: number | null | undefined) {
+  if (descuentos.length === 0) return undefined
+  const base = Number(basePrice)
+  const hasBase = Number.isFinite(base) && base > 0
+  return {
+    label: hasBase ? 'Calcular desde el precio base' : 'Escribe primero el precio base',
+    options: descuentos.map((d) => {
+      const percent = Number(d.valor)
+      const result = hasBase ? applyDiscount(base, percent) : null
+      return {
+        label: result != null ? `−${percent}%  ·  ${formatCop(result)}` : `−${percent}%`,
+        value: result != null ? String(result) : '',
+        disabled: !hasBase,
+      }
+    }),
+  }
+}
+
 function PlantillasEditor({
   plantillas,
   presets,
@@ -369,59 +389,47 @@ function PlantillasEditor({
                   </label>
                   <div>
                     <span className="block text-xs text-gray-600 mb-1">Precio (COP)</span>
-                    <input type="number" value={t.price ?? ''} disabled={!canEdit}
-                      onChange={(e) => update(t.id, { price: e.target.value === '' ? null : Number(e.target.value) })}
-                      className={INPUT} placeholder="90000" />
-                    <PresetChips
+                    <PresetSelect
+                      numeric
                       values={presets.precios}
                       current={t.price != null ? String(t.price) : ''}
-                      onPick={(v) => update(t.id, { price: v === '' ? null : Number(v) })}
+                      onChange={(v) => update(t.id, { price: v === '' ? null : Number(v) })}
                       format={formatCop}
-                      canEditPresets={canEdit}
+                      placeholder="90000"
+                      disabled={!canEdit}
                     />
                   </div>
                   <div>
                     <span className="block text-xs text-gray-600 mb-1">Precio de oferta (COP)</span>
-                    <input type="number" value={t.sale_price ?? ''} disabled={!canEdit}
-                      onChange={(e) => update(t.id, { sale_price: e.target.value === '' ? null : Number(e.target.value) })}
-                      className={INPUT} placeholder="70000" />
-                    <PresetChips
+                    <PresetSelect
+                      numeric
                       values={presets.precios_oferta}
                       current={t.sale_price != null ? String(t.sale_price) : ''}
-                      onPick={(v) => update(t.id, { sale_price: v === '' ? null : Number(v) })}
+                      onChange={(v) => update(t.id, { sale_price: v === '' ? null : Number(v) })}
                       format={formatCop}
-                      canEditPresets={canEdit}
-                    />
-                    <DiscountChips
-                      values={presets.descuentos}
-                      basePrice={t.price != null ? String(t.price) : ''}
-                      currentSalePrice={t.sale_price != null ? String(t.sale_price) : ''}
-                      onPick={(v) => update(t.id, { sale_price: v === '' ? null : Number(v) })}
-                      compute={applyDiscount}
+                      placeholder="70000"
+                      disabled={!canEdit}
+                      extraGroup={discountGroup(presets.descuentos, t.price)}
                     />
                   </div>
                   <div>
                     <span className="block text-xs text-gray-600 mb-1">Material</span>
-                    <input value={t.material ?? ''} disabled={!canEdit}
-                      onChange={(e) => update(t.id, { material: e.target.value })}
-                      className={INPUT} placeholder="100% algodón" />
-                    <PresetChips
+                    <PresetSelect
                       values={presets.materiales}
                       current={t.material ?? ''}
-                      onPick={(v) => update(t.id, { material: v })}
-                      canEditPresets={canEdit}
+                      onChange={(v) => update(t.id, { material: v })}
+                      placeholder="100% algodón"
+                      disabled={!canEdit}
                     />
                   </div>
                   <div>
                     <span className="block text-xs text-gray-600 mb-1">Método de impresión</span>
-                    <input value={t.printing_method ?? ''} disabled={!canEdit}
-                      onChange={(e) => update(t.id, { printing_method: e.target.value })}
-                      className={INPUT} placeholder="DTF" />
-                    <PresetChips
+                    <PresetSelect
                       values={presets.metodos_impresion}
                       current={t.printing_method ?? ''}
-                      onPick={(v) => update(t.id, { printing_method: v })}
-                      canEditPresets={canEdit}
+                      onChange={(v) => update(t.id, { printing_method: v })}
+                      placeholder="DTF"
+                      disabled={!canEdit}
                     />
                   </div>
                 </div>
