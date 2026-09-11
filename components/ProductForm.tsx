@@ -280,6 +280,19 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     showToast(`Plantilla "${t.nombre}" aplicada`)
   }
 
+  // La tabla de variantes se muestra en orden canónico (el de la guía de
+  // tallas y el de la paleta), no en el orden en que se marcaron los chips.
+  // Lo que no esté en esas listas se agrega al final para no perder celdas.
+  const orderedSizes = [
+    ...availableSizes.filter((s) => sizes.includes(s)),
+    ...sizes.filter((s) => !availableSizes.includes(s)),
+  ]
+  const paletteNames = colorPalette.map((c) => c.name)
+  const orderedColors = [
+    ...paletteNames.filter((c) => colors.includes(c)),
+    ...colors.filter((c) => !paletteNames.includes(c)),
+  ]
+
   function handleNameChange(v: string) {
     setName(v)
     if (!idManual) setId(slugify(v))
@@ -327,7 +340,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   function repartirEquitativamente() {
     const total = Math.max(0, Math.floor(Number(stock) || 0))
     if (total <= 0) return
-    setVariantQty(distribute(total, sizes, colors))
+    setVariantQty(distribute(total, orderedSizes, orderedColors))
   }
 
   function toggleCollection(colId: string) {
@@ -362,7 +375,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       stock_mode: stockMode,
       // En modo variantes el backend recalcula stock como la suma de la tabla.
       ...(stockMode === 'variantes'
-        ? { stock_variants: variantsToPayload(variantQty, sizes, colors) }
+        ? { stock_variants: variantsToPayload(variantQty, orderedSizes, orderedColors) }
         : { stock: stock !== '' ? Number(stock) : undefined }),
       // Campos que el formulario no edita pero que sí hay que arrastrar al
       // duplicar, o el producto nuevo nacería como 'unisex' y sin etiquetas.
@@ -573,7 +586,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
               <p className="text-xs text-gray-500">
                 Unidades por talla y color. El total se guarda como el stock del producto.
               </p>
-              {Number(stock) > 0 && sizes.length > 0 && totalOf(variantQty, sizes, colors) === 0 && (
+              {Number(stock) > 0 && orderedSizes.length > 0 && totalOf(variantQty, orderedSizes, orderedColors) === 0 && (
                 <button type="button" onClick={repartirEquitativamente}
                   className="px-3 py-1 text-xs border border-gray-300 rounded hover:border-gray-900 whitespace-nowrap">
                   Repartir {Math.floor(Number(stock))} unidades equitativamente
@@ -581,8 +594,8 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
               )}
             </div>
             <StockVariants
-              sizes={sizes}
-              colors={colors}
+              sizes={orderedSizes}
+              colors={orderedColors}
               qty={variantQty}
               onChange={(q) => { setTouched(true); setVariantQty(q) }}
             />
