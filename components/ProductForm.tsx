@@ -6,6 +6,16 @@ import { uploadProductImage } from '@/lib/upload'
 import { PresetChips, DiscountChips } from '@/components/PresetChips'
 import { usePermissions } from '@/contexts/PermissionsContext'
 import {
+  StockVariants,
+  distribute,
+  payloadToVariants,
+  qtyForColor,
+  qtyForSize,
+  totalOf,
+  variantsToPayload,
+  type VariantQty,
+} from '@/components/StockVariants'
+import {
   fetchPresets,
   applyDiscount,
   defaultValue,
@@ -102,6 +112,12 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [price, setPrice] = useState(String(initial?.price ?? ''))
   const [salePrice, setSalePrice] = useState(String(initial?.sale_price ?? ''))
   const [stock, setStock] = useState(String(initial?.stock ?? '0'))
+  const [stockMode, setStockMode] = useState<'general' | 'variantes'>(
+    initial?.stock_mode === 'variantes' ? 'variantes' : 'general',
+  )
+  const [variantQty, setVariantQty] = useState<VariantQty>(
+    () => payloadToVariants(initial?.stock_variants),
+  )
   const [onSale, setOnSale] = useState(Boolean(initial?.on_sale))
   const [available, setAvailable] = useState(initial?.available !== false)
   const [featured, setFeatured] = useState(Boolean(initial?.featured))
@@ -270,13 +286,48 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   }
 
   function toggleSize(s: string) {
+    if (stockMode === 'variantes' && sizes.includes(s)) {
+      const registradas = qtyForSize(variantQty, s, colors)
+      if (registradas > 0 && !confirm(
+        `La talla ${s} tiene ${registradas} ${registradas === 1 ? 'unidad registrada' : 'unidades registradas'}. ¿Quitarla?`,
+      )) return
+    }
     setTouched(true)
     setSizes((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
   }
 
   function toggleColor(name: string) {
+    if (stockMode === 'variantes' && colors.includes(name)) {
+      const registradas = qtyForColor(variantQty, name, sizes)
+      if (registradas > 0 && !confirm(
+        `El color ${name} tiene ${registradas} ${registradas === 1 ? 'unidad registrada' : 'unidades registradas'}. ¿Quitarlo?`,
+      )) return
+    }
     setTouched(true)
     setColors((prev) => prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name])
+  }
+
+  // Cambio de modo. De general a variantes la tabla arranca vacía (se ofrece
+  // repartir el total que había). De variantes a general se confirma, porque
+  // el detalle por talla y color se pierde.
+  function changeStockMode(mode: 'general' | 'variantes') {
+    if (mode === stockMode) return
+    if (mode === 'general') {
+      const total = totalOf(variantQty, sizes, colors)
+      if (total > 0 && !confirm(
+        `Se perderá el detalle por talla y color. El stock quedará en ${total} ${total === 1 ? 'unidad' : 'unidades'}. ¿Continuar?`,
+      )) return
+      setStock(String(total))
+      setVariantQty({})
+    }
+    setTouched(true)
+    setStockMode(mode)
+  }
+
+  function repartirEquitativamente() {
+    const total = Math.max(0, Math.floor(Number(stock) || 0))
+    if (total <= 0) return
+    setVariantQty(distribute(total, sizes, colors))
   }
 
   function toggleCollection(colId: string) {
@@ -308,7 +359,11 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       available,
       featured,
       free_shipping: freeShipping,
-      stock: stock !== '' ? Number(stock) : undefined,
+      stock_mode: stockMode,
+      // En modo variantes el backend recalcula stock como la suma de la tabla.
+      ...(stockMode === 'variantes'
+        ? { stock_variants: variantsToPayload(variantQty, sizes, colors) }
+        : { stock: stock !== '' ? Number(stock) : undefined }),
       // Campos que el formulario no edita pero que sí hay que arrastrar al
       // duplicar, o el producto nuevo nacería como 'unisex' y sin etiquetas.
       ...(isDuplicate && {
@@ -492,11 +547,47 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
               compute={applyDiscount}
             />
           </Field>
-          <Field label="Stock (unidades)">
-            <input type="number" min="0" value={stock} onChange={(e) => setStock(e.target.value)}
-              className={INPUT} placeholder="0" />
+          <Field label="Stock">
+            <div className="flex flex-wrap gap-4 pt-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
+                <input type="radio" name="stock-mode" checked={stockMode === 'general'}
+                  onChange={() => changeStockMode('general')} />
+                General
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
+                <input type="radio" name="stock-mode" checked={stockMode === 'variantes'}
+                  onChange={() => changeStockMode('variantes')} />
+                Personalizado
+              </label>
+            </div>
+            {stockMode === 'general' && (
+              <input type="number" min="0" value={stock} onChange={(e) => setStock(e.target.value)}
+                className={`${INPUT} mt-2`} placeholder="0" />
+            )}
           </Field>
         </div>
+
+        {stockMode === 'variantes' && (
+          <div className="border border-gray-200 rounded p-4">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <p className="text-xs text-gray-500">
+                Unidades por talla y color. El total se guarda como el stock del producto.
+              </p>
+              {Number(stock) > 0 && sizes.length > 0 && totalOf(variantQty, sizes, colors) === 0 && (
+                <button type="button" onClick={repartirEquitativamente}
+                  className="px-3 py-1 text-xs border border-gray-300 rounded hover:border-gray-900 whitespace-nowrap">
+                  Repartir {Math.floor(Number(stock))} unidades equitativamente
+                </button>
+              )}
+            </div>
+            <StockVariants
+              sizes={sizes}
+              colors={colors}
+              qty={variantQty}
+              onChange={(q) => { setTouched(true); setVariantQty(q) }}
+            />
+          </div>
+        )}
         <Field label="Estado">
           <div className="flex flex-wrap gap-4 pt-1">
             <Toggle label="En oferta" value={onSale} onChange={setOnSale} />
