@@ -141,12 +141,19 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const model3dFileRef = useRef<HTMLInputElement>(null)
   const [pendingModel, setPendingModel] = useState<string | null>(null)
 
-  const [extraImages, setExtraImages] = useState<Array<{ url: string; type: string; color: string | null; label: string | null }>>(
-    Array.isArray(initial?.images) ? (initial.images as Array<{ url: string; type: string; color: string | null; label: string | null }>) : [],
-  )
+  const [extraImages, setExtraImages] = useState<Array<{ url: string; type: string; color: string | null; label: string | null }>>(() => {
+    const raw = Array.isArray(initial?.images)
+      ? (initial.images as Array<{ url: string; type: string; color: string | null; label: string | null }>)
+      : []
+    // Antes, subir dos fotos del mismo tipo y color dejaba dos entradas con la
+    // misma URL. Se muestran una sola vez; el servidor las limpia al guardar.
+    const seen = new Set<string>()
+    return raw.filter((img) => (seen.has(img.url) ? false : (seen.add(img.url), true)))
+  })
   const [extraImageType, setExtraImageType] = useState<'back' | 'front' | 'lifestyle' | 'detail' | 'flat'>('lifestyle')
   const [extraImageColor, setExtraImageColor] = useState('')
-  const [uploadingExtra, setUploadingExtra] = useState(false)
+  // null = libre; texto = mensaje de progreso ("Subiendo 2 de 5…")
+  const [uploadingExtra, setUploadingExtra] = useState<string | null>(null)
   const extraFileRef = useRef<HTMLInputElement>(null)
   const [presets, setPresets] = useState<PresetsDoc>(EMPTY_PRESETS)
   // Se marca en cuanto el usuario cambia algún campo que una plantilla
@@ -292,6 +299,22 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
     ...paletteNames.filter((c) => colors.includes(c)),
     ...colors.filter((c) => !paletteNames.includes(c)),
   ]
+
+  // Cambia tipo o color de una foto ya subida. Optimista: se ve al instante y
+  // se revierte si el servidor falla.
+  async function updateExtraImage(url: string, patch: { type?: string; color?: string | null }) {
+    const antes = extraImages
+    setExtraImages((prev) => prev.map((img) => (img.url === url ? { ...img, ...patch } : img)))
+    const res = await botFetch(`/api/admin/web/products/${productId}/images`, {
+      method: 'PATCH',
+      body: JSON.stringify({ url, ...patch }),
+    })
+    if (!res.ok) {
+      setExtraImages(antes)
+      const b = await res.json().catch(() => ({}))
+      showToast(b.error || 'No se pudo actualizar la foto')
+    }
+  }
 
   function handleNameChange(v: string) {
     setName(v)
@@ -994,11 +1017,33 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
           {/* Imágenes existentes */}
           {extraImages.length > 0 && (
             <div className="grid grid-cols-3 gap-3 mb-4">
-              {extraImages.map((img, i) => (
-                <div key={i} className="relative border border-gray-200 rounded overflow-hidden">
+              {extraImages.map((img) => (
+                <div key={img.url} className="relative border border-gray-200 rounded overflow-hidden">
                   <img src={img.url} alt={img.type} className="w-full h-28 object-cover bg-gray-50" />
-                  <div className="px-2 py-1 bg-gray-50 text-[10px] text-gray-500">
-                    {TYPE_LABELS[img.type] ?? img.type}{img.color ? ` · ${img.color}` : ''}
+                  <div className="p-1.5 bg-gray-50 space-y-1">
+                    <select
+                      value={img.type}
+                      onChange={(e) => updateExtraImage(img.url, { type: e.target.value })}
+                      className="w-full px-1.5 py-1 text-[11px] border border-gray-300 rounded bg-white"
+                      title="Tipo de foto"
+                    >
+                      {Object.entries(TYPE_LABELS).map(([v, l]) => (
+                        <option key={v} value={v}>{l}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={img.color ?? ''}
+                      onChange={(e) => updateExtraImage(img.url, { color: e.target.value || null })}
+                      className="w-full px-1.5 py-1 text-[11px] border border-gray-300 rounded bg-white"
+                      title="Color al que pertenece esta foto"
+                    >
+                      <option value="">Todos los colores</option>
+                      {colors.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {/* Un color que ya no está marcado en el producto sigue visible */}
+                      {img.color && !colors.includes(img.color) && (
+                        <option value={img.color}>{img.color}</option>
+                      )}
+                    </select>
                   </div>
                   <button
                     type="button"
@@ -1009,7 +1054,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
                         body: JSON.stringify({ url: img.url }),
                       })
                       if (res.ok) {
-                        setExtraImages((prev) => prev.filter((_, j) => j !== i))
+                        setExtraImages((prev) => prev.filter((x) => x.url !== img.url))
                         showToast('Foto eliminada')
                       }
                     }}
@@ -1023,7 +1068,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
           {/* Upload nueva foto */}
           <div className="flex gap-2 flex-wrap items-end">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Tipo</label>
+              <label className="block text-xs text-gray-500 mb-1">Tipo de las fotos nuevas</label>
               <select value={extraImageType} onChange={(e) => setExtraImageType(e.target.value as typeof extraImageType)}
                 className={INPUT}>
                 {Object.entries(TYPE_LABELS).map(([v, l]) => (
@@ -1032,7 +1077,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Color (opcional)</label>
+              <label className="block text-xs text-gray-500 mb-1">Color de las fotos nuevas</label>
               <select value={extraImageColor} onChange={(e) => setExtraImageColor(e.target.value)}
                 className={`${INPUT} w-40`}>
                 <option value="">Todos los colores</option>
@@ -1043,33 +1088,44 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
             </div>
             <button
               type="button"
-              disabled={uploadingExtra}
+              disabled={uploadingExtra !== null}
               onClick={() => extraFileRef.current?.click()}
               className="px-3 py-2 text-xs border border-gray-300 rounded hover:border-gray-500 disabled:opacity-50"
             >
-              {uploadingExtra ? 'Subiendo…' : '+ Subir foto'}
+              {uploadingExtra ?? '+ Subir fotos'}
             </button>
           </div>
-          <input ref={extraFileRef} type="file" accept="image/*" className="hidden"
+          <p className="text-xs text-gray-400 mt-2">
+            Puedes elegir varias fotos a la vez. Después de subirlas, cambia el tipo o el color de cada una desde su miniatura.
+          </p>
+          <input ref={extraFileRef} type="file" accept="image/*" multiple className="hidden"
             onChange={async (e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              setUploadingExtra(true)
-              const fd = new FormData()
-              fd.append('file', file)
-              fd.append('type', extraImageType)
-              if (extraImageColor.trim()) fd.append('color', extraImageColor.trim())
-              const res = await botFetch(`/api/admin/web/products/${productId}/images`, { method: 'POST', headers: {}, body: fd })
-              setUploadingExtra(false)
-              if (res.ok) {
-                const { image } = await res.json()
-                setExtraImages((prev) => [...prev, image])
-                showToast('Foto subida ✅')
-                setExtraImageColor('')
-              } else {
-                const b = await res.json().catch(() => ({}))
-                showToast(b.error || 'Error al subir')
+              const files = Array.from(e.target.files ?? [])
+              if (files.length === 0) return
+              let subidas = 0
+              const fallidas: string[] = []
+              // Una por una: el servidor agrega cada foto al arreglo leyendo el
+              // estado actual, y en paralelo dos subidas se pisarían entre sí.
+              for (let n = 0; n < files.length; n++) {
+                const file = files[n]
+                setUploadingExtra(files.length > 1 ? `Subiendo ${n + 1} de ${files.length}…` : 'Subiendo…')
+                const fd = new FormData()
+                fd.append('file', file)
+                fd.append('type', extraImageType)
+                if (extraImageColor.trim()) fd.append('color', extraImageColor.trim())
+                const res = await botFetch(`/api/admin/web/products/${productId}/images`, { method: 'POST', headers: {}, body: fd })
+                if (res.ok) {
+                  const { image } = await res.json()
+                  setExtraImages((prev) => [...prev, image])
+                  subidas++
+                } else {
+                  fallidas.push(file.name)
+                }
               }
+              setUploadingExtra(null)
+              showToast(fallidas.length
+                ? `${subidas} subida(s), fallaron: ${fallidas.join(', ')}`
+                : subidas === 1 ? 'Foto subida ✅' : `${subidas} fotos subidas ✅`)
               if (extraFileRef.current) extraFileRef.current.value = ''
             }}
           />
