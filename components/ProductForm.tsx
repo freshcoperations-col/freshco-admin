@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { botFetch } from '@/lib/api'
 import { uploadProductImage } from '@/lib/upload'
+import { prepareImageForUpload, UPLOAD_LIMIT_BYTES } from '@/lib/image-compress'
 import { PresetChips, DiscountChips } from '@/components/PresetChips'
 import { usePermissions } from '@/contexts/PermissionsContext'
 import {
@@ -1107,24 +1108,41 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
               // Una por una: el servidor agrega cada foto al arreglo leyendo el
               // estado actual, y en paralelo dos subidas se pisarían entre sí.
               for (let n = 0; n < files.length; n++) {
-                const file = files[n]
-                setUploadingExtra(files.length > 1 ? `Subiendo ${n + 1} de ${files.length}…` : 'Subiendo…')
-                const fd = new FormData()
-                fd.append('file', file)
-                fd.append('type', extraImageType)
-                if (extraImageColor.trim()) fd.append('color', extraImageColor.trim())
-                const res = await botFetch(`/api/admin/web/products/${productId}/images`, { method: 'POST', headers: {}, body: fd })
-                if (res.ok) {
-                  const { image } = await res.json()
-                  setExtraImages((prev) => [...prev, image])
-                  subidas++
-                } else {
-                  fallidas.push(file.name)
+                const progreso = files.length > 1 ? ` ${n + 1} de ${files.length}` : ''
+                try {
+                  setUploadingExtra(`Optimizando${progreso}…`)
+                  const file = await prepareImageForUpload(files[n])
+                  // Vercel corta en 4,5 MB con un 413 sin CORS, que el navegador
+                  // reporta como fallo de red. Mejor avisar antes de mandarlo.
+                  if (file.size > UPLOAD_LIMIT_BYTES) {
+                    fallidas.push(`${files[n].name} (pesa demasiado)`)
+                    continue
+                  }
+                  setUploadingExtra(`Subiendo${progreso}…`)
+                  const fd = new FormData()
+                  fd.append('file', file)
+                  fd.append('type', extraImageType)
+                  if (extraImageColor.trim()) fd.append('color', extraImageColor.trim())
+                  const res = await botFetch(`/api/admin/web/products/${productId}/images`, { method: 'POST', headers: {}, body: fd })
+                  if (res.ok) {
+                    const { image } = await res.json()
+                    setExtraImages((prev) => [...prev, image])
+                    subidas++
+                  } else {
+                    const b = await res.json().catch(() => ({}))
+                    fallidas.push(`${files[n].name}${b.error ? ` (${b.error})` : ''}`)
+                  }
+                } catch {
+                  // Fallo de red: antes esto abortaba todo el ciclo sin avisar.
+                  fallidas.push(`${files[n].name} (error de conexión)`)
                 }
               }
               setUploadingExtra(null)
+              if (fallidas.length) {
+                setError(`No se pudieron subir: ${fallidas.join(', ')}`)
+              }
               showToast(fallidas.length
-                ? `${subidas} subida(s), fallaron: ${fallidas.join(', ')}`
+                ? `${subidas} subida(s), ${fallidas.length} con error — ver detalle abajo`
                 : subidas === 1 ? 'Foto subida ✅' : `${subidas} fotos subidas ✅`)
               if (extraFileRef.current) extraFileRef.current.value = ''
             }}
