@@ -34,6 +34,7 @@ const NAV: NavItem[] = [
   { href: '/products', label: 'Productos', match: (p) => p.startsWith('/products'), permission: 'products_view' },
   { href: '/coupons', label: 'Cupones', match: (p) => p.startsWith('/coupons'), permission: 'coupons_edit' },
   { href: '/collections', label: 'Colecciones', match: (p) => p.startsWith('/collections'), permission: 'collections_edit' },
+  { href: '/banners', label: 'Banners', match: (p) => p.startsWith('/banners'), permission: 'banners_edit' },
   { href: '/sizes', label: 'Guía de tallas', match: (p) => p.startsWith('/sizes'), permission: 'sizes_edit' },
   { href: '/inventory', label: 'Stock global', match: (p) => p.startsWith('/inventory'), permission: 'inventory_view' },
   { href: '/colors', label: 'Colores', match: (p) => p.startsWith('/colors'), permission: 'colors_edit' },

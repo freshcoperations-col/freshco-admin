@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { Fragment, useEffect, useState, useCallback } from 'react'
 import { botFetch } from '@/lib/api'
+import { CollectionImageEditor, type CollectionImageData } from '@/components/CollectionImageEditor'
 
 interface Collection {
   id: string
@@ -10,6 +11,9 @@ interface Collection {
   sort_order: number
   active: boolean
   created_at: string
+  image_url: string | null
+  image_focus: string | null
+  show_title: boolean | null
 }
 
 const INPUT = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500'
@@ -27,6 +31,8 @@ export default function CollectionsPage() {
   const [formOrder, setFormOrder] = useState('0')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  // Colección cuyo editor de foto está abierto (debajo de su fila).
+  const [imageOpen, setImageOpen] = useState<string | null>(null)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
@@ -114,7 +120,7 @@ export default function CollectionsPage() {
   const showForm = creating || !!editing
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold mb-1">Colecciones</h1>
@@ -176,6 +182,7 @@ export default function CollectionsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
+                <th className="px-4 py-2 text-left">Foto</th>
                 <th className="px-4 py-2 text-left">Nombre</th>
                 <th className="px-4 py-2 text-left">Slug (ID)</th>
                 <th className="px-4 py-2 text-left">Descripción</th>
@@ -186,7 +193,22 @@ export default function CollectionsPage() {
             </thead>
             <tbody>
               {collections.map((c) => (
-                <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50">
+                <Fragment key={c.id}>
+                <tr className="border-t border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <button type="button"
+                      onClick={() => setImageOpen(imageOpen === c.id ? null : c.id)}
+                      title={c.image_url ? 'Editar foto' : 'Agregar foto'}
+                      className={`block w-10 h-12 rounded overflow-hidden border ${imageOpen === c.id ? 'border-gray-900 ring-1 ring-gray-900' : 'border-gray-200 hover:border-gray-500'}`}>
+                      {c.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.image_url} alt="" className="w-full h-full object-cover"
+                          style={{ objectPosition: c.image_focus ?? '50% 50%' }} />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-gray-400 text-lg border-dashed">+</span>
+                      )}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 font-medium">{c.label}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-400">{c.id}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate" title={c.description ?? ''}>
@@ -227,6 +249,19 @@ export default function CollectionsPage() {
                     </div>
                   </td>
                 </tr>
+                {imageOpen === c.id && (
+                  <tr>
+                    <td colSpan={7} className="p-0">
+                      <CollectionImageEditor
+                        collection={c as CollectionImageData}
+                        onChange={(next) => setCollections((prev) =>
+                          prev.map((x) => (x.id === next.id ? { ...x, ...next } : x)))}
+                        onToast={showToast}
+                      />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
