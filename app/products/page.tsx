@@ -162,6 +162,10 @@ export default function ProductsPage() {
           >
             {retagging ? 'Analizando…' : 'Analizar con IA'}
           </button>
+          <Link href="/products/import"
+            className="px-3 py-2 text-xs uppercase tracking-wide border border-gray-300 rounded hover:border-gray-900">
+            Editar con CSV
+          </Link>
           <Link href="/products/new"
             className="px-3 py-2 text-xs uppercase tracking-wide bg-gray-900 text-white rounded">
             + Nuevo
