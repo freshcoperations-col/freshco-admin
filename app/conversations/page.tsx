@@ -90,22 +90,27 @@ export default function ConversationsPage() {
     }
   }, [selected, loadMessages, conversations])
 
-  // Realtime: suscripción a mensajes nuevos en Supabase
+  // Refresco cada pocos segundos vía el API del bot. Antes era realtime de
+  // Supabase, que exigía dejar la tabla de mensajes abierta a la llave pública.
   useEffect(() => {
-    const supabase = getSupabase()
-    const channel = supabase
-      .channel('admin-conv-messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const msg = payload.new as Message
-        // Actualizar conversaciones siempre
-        loadConversations()
-        // Si es del cliente seleccionado, agregar al chat
-        if (msg.customer_phone === selected) {
-          setMessages((prev) => [...prev, msg])
-        }
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    const timer = setInterval(() => {
+      if (document.hidden) return
+      loadConversations()
+      if (selected) {
+        botFetch(`/api/admin/web/conversations/${selected}/messages`, { method: 'GET' })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((body) => {
+            const next = body?.messages as Message[] | undefined
+            if (!next) return
+            // Solo si cambió: si no, el chat saltaría al final en cada refresco.
+            setMessages((prev) =>
+              prev.length === next.length && prev[prev.length - 1]?.id === next[next.length - 1]?.id ? prev : next,
+            )
+          })
+          .catch(() => {})
+      }
+    }, 8_000)
+    return () => clearInterval(timer)
   }, [selected, loadConversations])
 
   async function handleSend() {

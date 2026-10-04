@@ -3,12 +3,32 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { botFetch } from '@/lib/api'
 import { useEffect, useRef, useState } from 'react'
 import { ensureNotifyPermission, notify } from '@/lib/notify'
 import { usePermissions } from '@/contexts/PermissionsContext'
 import type { PermissionId } from '@/lib/permissions'
 
 const LS_KEY = 'admin_orders_last_checked'
+const POLL_MS = 20_000
+
+interface Activity {
+  now: string
+  new_orders: number
+  orders: RecentOrder[]
+  asesor_requests: Array<{ id: string; customer_phone: string; content: string | null }>
+}
+
+// Pedidos y pedidos de asesor desde `since`, vía el API del bot (que valida
+// que seas admin). Las tablas ya no se leen directo desde el navegador.
+async function fetchActivity(since: string): Promise<Activity | null> {
+  try {
+    const res = await botFetch(`/api/admin/web/activity?since=${encodeURIComponent(since)}`, { method: 'GET' })
+    return res.ok ? ((await res.json()) as Activity) : null
+  } catch {
+    return null
+  }
+}
 
 interface RecentOrder {
   id: string
@@ -59,15 +79,9 @@ export function AdminSidebar({ onClose }: { onClose?: () => void }) {
   }
 
   async function handleBell() {
-    const supabase = getSupabase()
     const lastChecked = localStorage.getItem(LS_KEY) ?? new Date(0).toISOString()
-    const { data } = await supabase
-      .from('orders')
-      .select('id, customer_name, total, created_at')
-      .gt('created_at', lastChecked)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    setRecentOrders((data as RecentOrder[]) ?? [])
+    const activity = await fetchActivity(lastChecked)
+    setRecentOrders(activity?.orders ?? [])
     setShowDrop((v) => !v)
   }
 
@@ -77,36 +91,36 @@ export function AdminSidebar({ onClose }: { onClose?: () => void }) {
       setEmail(data.session?.user?.email ?? null)
     })
 
-    // Contar pedidos nuevos desde la última vez que se revisó
-    const lastChecked = localStorage.getItem(LS_KEY) ?? new Date(0).toISOString()
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .gt('created_at', lastChecked)
-      .then(({ count }) => setUnread(count ?? 0))
+    let cancelled = false
+    let canNotify = false
+    // Desde cuándo avisar con notificación del navegador: solo lo que llegue
+    // después de abrir el admin, no lo viejo.
+    let cursor = new Date().toISOString()
 
-    // Realtime: pedidos nuevos y mensajes de asesor
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    ensureNotifyPermission().then((ok) => {
-      channel = supabase
-        .channel('admin-events')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-          const o = payload.new as { customer_name?: string; total?: number }
-          const who = o.customer_name ?? 'Un cliente'
-          const total = o.total ? `$${Number(o.total).toLocaleString('es-CO')}` : ''
-          if (ok) notify('Pedido nuevo 🛍', `${who} — ${total}`)
-          setUnread((n) => n + 1)
-        })
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-          const m = payload.new as { intent?: string; direction?: string; content?: string; customer_phone?: string }
-          if (ok && m.direction === 'inbound' && m.intent === 'solicita_asesor') {
+    async function poll() {
+      // Contador de la campana: pedidos nuevos desde la última vez que se revisó.
+      const lastChecked = localStorage.getItem(LS_KEY) ?? new Date(0).toISOString()
+      const [badge, fresh] = await Promise.all([fetchActivity(lastChecked), fetchActivity(cursor)])
+      if (cancelled) return
+      if (badge) setUnread(badge.new_orders)
+      if (fresh) {
+        cursor = fresh.now
+        if (canNotify) {
+          for (const o of fresh.orders) {
+            const total = o.total ? `$${Number(o.total).toLocaleString('es-CO')}` : ''
+            notify('Pedido nuevo 🛍', `${o.customer_name ?? 'Un cliente'} — ${total}`)
+          }
+          for (const m of fresh.asesor_requests) {
             notify('Cliente quiere asesor 🆘', `+${m.customer_phone}: ${(m.content ?? '').slice(0, 80)}`)
           }
-        })
-        .subscribe()
-    })
+        }
+      }
+    }
 
-    return () => { if (channel) supabase.removeChannel(channel) }
+    ensureNotifyPermission().then((ok) => { canNotify = ok })
+    poll()
+    const timer = setInterval(poll, POLL_MS)
+    return () => { cancelled = true; clearInterval(timer) }
   }, [])
 
   // Cerrar dropdown al hacer click fuera
