@@ -13,6 +13,9 @@ interface Product {
   on_sale: boolean
   stock: number
   available: boolean
+  // false = está solo en colecciones desactivadas: la tienda no lo muestra
+  // aunque "Mostrar" esté encendido.
+  collection_active?: boolean
   out_of_stock: boolean
   featured: boolean | null
   free_shipping: boolean | null
@@ -375,7 +378,12 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
-                      {p.available ? (
+                      {p.available && p.collection_active === false ? (
+                        <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded w-fit"
+                          title="Todas sus colecciones están desactivadas: la tienda y el bot no lo muestran. Actívalas en Colecciones.">
+                          Oculto por colección
+                        </span>
+                      ) : p.available ? (
                         <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded w-fit">Visible</span>
                       ) : (
                         <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded w-fit">Oculto</span>
@@ -453,6 +461,7 @@ export default function ProductsPage() {
                   {p.on_sale && <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-700 rounded-full font-medium">SALE</span>}
                   {p.free_shipping && <span className="px-2 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">Envío gratis</span>}
                   {!p.available && <span className="px-2 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full font-medium">Pausado</span>}
+                  {p.available && p.collection_active === false && <span className="px-2 py-0.5 text-[10px] bg-amber-100 text-amber-800 rounded-full font-medium">Oculto por colección</span>}
                   {p.out_of_stock && <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">Agotado</span>}
                 </div>
                 {(p.colors ?? []).length > 0 && (
