@@ -135,6 +135,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
   const [printingMethod, setPrintingMethod] = useState(String(initial?.printing_method ?? ''))
 
   const [freeShipping, setFreeShipping] = useState(Boolean(initial?.free_shipping))
+  const [isTest, setIsTest] = useState(Boolean(initial?.is_test))
   const [model3dKeys, setModel3dKeys] = useState<Record<string, number>>({})
   const [model3dExists, setModel3dExists] = useState<Record<string, boolean>>({})
   const [uploadingModel, setUploadingModel] = useState<Record<string, boolean>>({})
@@ -396,6 +397,7 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
       available,
       featured,
       free_shipping: freeShipping,
+      is_test: isTest,
       stock_mode: stockMode,
       // En modo variantes el backend recalcula stock como la suma de la tabla.
       ...(stockMode === 'variantes'
@@ -631,7 +633,14 @@ export function ProductForm({ initial, garmentTypes, collections, onSaved, onDel
             <Toggle label="Mostrar" value={available} onChange={setAvailable} />
             <Toggle label="Destacado" value={featured} onChange={setFeatured} />
             <Toggle label="Envío gratis siempre 🎁" value={freeShipping} onChange={setFreeShipping} />
+            <Toggle label="Producto de prueba 🧪" value={isTest} onChange={setIsTest} />
           </div>
+          {isTest && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-3">
+              Los clientes no lo ven en el catálogo, la búsqueda, "Más vendidos" ni en el bot, y sus ventas no cuentan
+              en analíticas. Se puede comprar desde su link directo para probar pagos.
+            </p>
+          )}
         </Field>
       </Section>
 

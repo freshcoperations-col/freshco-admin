@@ -19,6 +19,7 @@ interface Product {
   out_of_stock: boolean
   featured: boolean | null
   free_shipping: boolean | null
+  is_test?: boolean | null
   colors: string[] | null
   sizes: string[] | null
   visual_tags: string[] | null
@@ -356,7 +357,10 @@ export default function ProductsPage() {
                       {p.free_shipping && (
                         <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">Envío gratis</span>
                       )}
-                      {!p.on_sale && !p.free_shipping && (
+                      {p.is_test && (
+                        <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded-full font-medium">🧪 Prueba</span>
+                      )}
+                      {!p.on_sale && !p.free_shipping && !p.is_test && (
                         <span className="text-xs text-gray-400">—</span>
                       )}
                     </div>
@@ -460,6 +464,7 @@ export default function ProductsPage() {
                 <div className="flex gap-1 mt-1 flex-wrap">
                   {p.on_sale && <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-700 rounded-full font-medium">SALE</span>}
                   {p.free_shipping && <span className="px-2 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">Envío gratis</span>}
+                  {p.is_test && <span className="px-2 py-0.5 text-[10px] bg-amber-100 text-amber-800 rounded-full font-medium">🧪 Prueba</span>}
                   {!p.available && <span className="px-2 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full font-medium">Pausado</span>}
                   {p.available && p.collection_active === false && <span className="px-2 py-0.5 text-[10px] bg-amber-100 text-amber-800 rounded-full font-medium">Oculto por colección</span>}
                   {p.out_of_stock && <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">Agotado</span>}
