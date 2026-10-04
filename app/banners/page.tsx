@@ -19,11 +19,12 @@ interface Banner {
 interface Collection { id: string; label: string }
 
 // Proporción real del carrusel de la tienda (BannerCarousel): 100% de ancho y
-// min(40vh, 450px) de alto. En un computador eso da ~4:1; en un celular, un
-// poco más ancho que alto. Los tamaños recomendados salen de ahí.
+// min(40vh, 450px) de alto (mínimo 250px), con object-fit: cover. En un
+// computador eso va de ~3.2:1 (1440 px) a ~4.4:1 (1920 px); en un celular
+// (390 × 844) da ~1.16:1, casi cuadrado. Los tamaños recomendados salen de ahí.
 const SLOTS = {
   desktop: { label: 'Computador', ratio: 4, hint: '1920 × 480 px' },
-  mobile: { label: 'Celular', ratio: 1.35, hint: '1080 × 800 px' },
+  mobile: { label: 'Celular', ratio: 1.17, hint: '1080 × 920 px' },
 } as const
 type Device = keyof typeof SLOTS
 
