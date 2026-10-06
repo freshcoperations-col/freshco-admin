@@ -10,6 +10,7 @@ interface Coupon {
   description: string | null
   active: boolean
   usage_limit: number | null
+  min_items?: number | null
   used_count: number
   expires_at: string | null
   one_per_customer: boolean
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
   discount: '',
   description: '',
   usage_limit: '',
+  min_items: '',
   expires_at: '',
   one_per_customer: false,
   first_purchase_only: false,
@@ -70,6 +72,7 @@ export default function CouponsPage() {
       discount: String(Math.round(c.discount * 100)),
       description: c.description ?? '',
       usage_limit: c.usage_limit != null ? String(c.usage_limit) : '',
+      min_items: c.min_items != null ? String(c.min_items) : '',
       expires_at: c.expires_at ? c.expires_at.slice(0, 16) : '',
       one_per_customer: c.one_per_customer ?? false,
       first_purchase_only: c.first_purchase_only ?? false,
@@ -99,6 +102,7 @@ export default function CouponsPage() {
       discount: discountPct / 100,
       description: form.description.trim() || null,
       usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
+      min_items: form.min_items ? Number(form.min_items) : null,
       expires_at: form.expires_at || null,
       one_per_customer: form.one_per_customer,
       first_purchase_only: form.first_purchase_only,
@@ -213,6 +217,16 @@ export default function CouponsPage() {
               />
             </div>
             <div>
+              <label className="block text-xs text-gray-600 mb-1">Mínimo de prendas (vacío = sin mínimo)</label>
+              <input
+                type="number" min="2"
+                value={form.min_items}
+                onChange={(e) => setForm({ ...form, min_items: e.target.value })}
+                placeholder="2"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+              />
+            </div>
+            <div>
               <label className="block text-xs text-gray-600 mb-1">Expiración (vacío = nunca)</label>
               <input
                 type="datetime-local"
@@ -287,6 +301,9 @@ export default function CouponsPage() {
                   <div className="font-mono font-bold text-sm">{c.code}</div>
                   {c.one_per_customer && (
                     <span className="text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">1 por cliente</span>
+                  )}
+                  {c.min_items != null && (
+                    <span className="ml-1 text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Desde {c.min_items} prendas</span>
                   )}
                   {c.first_purchase_only && (
                     <span className="ml-1 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Primera compra</span>
