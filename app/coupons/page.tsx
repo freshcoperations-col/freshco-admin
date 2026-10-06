@@ -13,6 +13,7 @@ interface Coupon {
   used_count: number
   expires_at: string | null
   one_per_customer: boolean
+  first_purchase_only?: boolean
   created_at: string
 }
 
@@ -23,6 +24,7 @@ const EMPTY_FORM = {
   usage_limit: '',
   expires_at: '',
   one_per_customer: false,
+  first_purchase_only: false,
 }
 
 type FormState = typeof EMPTY_FORM
@@ -70,6 +72,7 @@ export default function CouponsPage() {
       usage_limit: c.usage_limit != null ? String(c.usage_limit) : '',
       expires_at: c.expires_at ? c.expires_at.slice(0, 16) : '',
       one_per_customer: c.one_per_customer ?? false,
+      first_purchase_only: c.first_purchase_only ?? false,
     })
     setError(null)
     setShowForm(true)
@@ -98,6 +101,7 @@ export default function CouponsPage() {
       usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
       expires_at: form.expires_at || null,
       one_per_customer: form.one_per_customer,
+      first_purchase_only: form.first_purchase_only,
     }
 
     let res: Response
@@ -227,7 +231,20 @@ export default function CouponsPage() {
               />
               <label htmlFor="one_per_customer" className="text-sm text-gray-700 cursor-pointer">
                 Solo una vez por cliente
-                <span className="block text-xs text-gray-400">Ideal para cupones de bienvenida</span>
+                <span className="block text-xs text-gray-400">Cada correo o teléfono lo usa una sola vez</span>
+              </label>
+            </div>
+            <div className="flex items-center gap-3 pt-5">
+              <input
+                type="checkbox"
+                id="first_purchase_only"
+                checked={form.first_purchase_only}
+                onChange={(e) => setForm({ ...form, first_purchase_only: e.target.checked })}
+                className="w-4 h-4 rounded"
+              />
+              <label htmlFor="first_purchase_only" className="text-sm text-gray-700 cursor-pointer">
+                Solo primera compra
+                <span className="block text-xs text-gray-400">No vale si el cliente ya tiene una compra pagada o contraentrega</span>
               </label>
             </div>
           </div>
@@ -270,6 +287,9 @@ export default function CouponsPage() {
                   <div className="font-mono font-bold text-sm">{c.code}</div>
                   {c.one_per_customer && (
                     <span className="text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">1 por cliente</span>
+                  )}
+                  {c.first_purchase_only && (
+                    <span className="ml-1 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Primera compra</span>
                   )}
                 </td>
                 <td className="px-4 py-3 font-medium text-green-700">{Math.round(c.discount * 100)}%</td>
